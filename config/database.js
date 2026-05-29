@@ -1,7 +1,7 @@
 const { Sequelize } = require("sequelize");
 
 //const sequelize = new Sequelize('asademo', 'asademouser', '9gDxr7q#JRoBTdYr#u8M', {
-const sequelize = new Sequelize('asademo', 'root', '', {
+const sequelize = new Sequelize('bizgide_db', 'root', '', {
 // const sequelize = new Sequelize(
 //   process.env.DB,
 //   process.env.USER,

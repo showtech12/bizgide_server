@@ -86,23 +86,20 @@ const Updateproduct = async (id, body) => {
   // txtPriceInPcs: '0',
   //txtPcsInWhole: '24'
   const d = Tools.getNowDate();
- console.log(body);
+ //console.log(body);
 
   const product1 = await product.findOne({ where: { id: id } });
   //console.log(product1);
 
   product1.product_name = body.txtPrdtName.toUpperCase().trim();
   product1.bar_code =  body.txtBarcode
+  product1.mfg_date =  body.txtMfDate
+  product1.expiry_date =  body.txtExpDate
   //product1.cost_price = body.txtCostPrice.trim();
  // product1.unit_sell_price = body.txtPriceInPcs.trim();
   
   //product1.bar_code = body.txtBarcode.trim();
- // product1.piecies_value = body.txtPcsInWhole.trim();
 
-  
-  //if(body.txtStatus1 ===""){ product1.flag = ""; }else{product1.flag = body.txtStatus1.toUpperCase().trim();}
-
-  //product1.dated = d;
 
 
   await product1.save();

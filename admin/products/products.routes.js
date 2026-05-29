@@ -116,7 +116,7 @@ router.post(
   AuthRole("ADMIN", "CASHIER"),
   async (req, res, next) => {
     // console.log(req.userDtl);
-    console.log(req.body);
+    //console.log(req.body);
     const usr_id = req.userDtl.id;
     const { error, value } = ProductSchema.validate(req.body);
 
@@ -157,6 +157,9 @@ router.post(
         // piecies_value: req.body.txtPcsInWhole,
         product_code: "100",
         dated: d,
+        mfg_date:req.body.txtMfDate,
+        expiry_date:req.body.txtExpDate,
+
       };
 
       // console.log(myData)
@@ -545,8 +548,6 @@ router.get(
     //console.log(req.userDtl.id)
 
    
-
-
     // SELECT p.id, p.product_name, p.size, p.selling_price, p.cost_price, p.unit_sell_price, p.product_code, p.vat_amtz, p.category, p.model, p.brand , u.surname , u.othername , u.acct_no , p.bar_code, p.piecies_value FROM products p , tblusers u WHERE flag='SHOW' AND p.user_id = u.id ORDER BY p.id DESC
 
     try {
@@ -560,6 +561,9 @@ router.get(
                 p.category,
                 p.model,
                 p.brand,
+                p.mfg_date,
+                p.expiry_date,
+                p.bar_code,
                 uz.surname,
                 uz.othername, 
                 uz.acct_no,
@@ -605,6 +609,80 @@ router.get(
 
     //
   },
+);
+
+router.get(
+  "/api/v1/expirenotify",
+  verifyAdmin,
+  AuthRole("ADMIN", "CASHIER"),
+  async (req, res) => {
+
+    try {
+
+      const rows = await sequelize.query(`
+       SELECT 
+          *,
+          DATEDIFF(expiry_date, CURDATE()) AS days_left,
+          DATEDIFF(expiry_date, mfg_date) AS total_days,
+
+          ROUND(
+            (DATEDIFF(expiry_date, CURDATE()) / 
+            DATEDIFF(expiry_date, mfg_date)) * 100
+          ) AS percent_remaining
+
+      FROM products
+      WHERE mfg_date IS NOT NULL
+        AND expiry_date IS NOT NULL;
+      `, {
+        type: sequelize.QueryTypes.SELECT
+      });
+
+      const expired = [];
+      const critical = [];
+      const expiringSoon = [];
+
+      for (const product of rows) {
+
+        if (product.days_left <= 0) {
+          expired.push(product);
+        }
+
+        else if (product.percent_remaining <= 50) {
+          critical.push(product);
+        }
+
+        else if (product.days_left <= 35) {
+          expiringSoon.push(product);
+        }
+
+      }
+
+      return res.status(200).json({
+        success: true,
+
+        summary: {
+          expired: expired.length,
+          critical: critical.length,
+          expiringSoon: expiringSoon.length,
+        },
+
+        data: {
+          expired,
+          critical,
+          expiringSoon,
+        }
+      });
+
+    } catch (error) {
+
+      return res.status(500).json({
+        success: false,
+        message: error.message
+      });
+
+    }
+
+  }
 );
 
 router.get("/api/v1/productadmin", verifyAdmin, async (req, res) => {
@@ -722,99 +800,6 @@ router.post("/api/v1/productUpdt", verifyAdmin, async (req, res) => {
   } catch (error) {}
 });
 
-router.post("/api/v1/productUpdt11", verifyAdmin, async (req, res) => {
-  //const authUser = req.authedUser;
-  //const id = req.params.id;
-  const myVal = {
-    prdtName1: req.body.prdtName1,
-  };
 
-  const { error, value } = ProductSchemaEdit.validate(req.body, {
-    abortEarly: false,
-  });
-  if (error) {
-   // console.log(error);
-
-    return res.status(200).json({
-      success: false,
-      code: 200,
-      message: error.details[0].message.replace(/\"/g, ""),
-    });
-  } else {
-    //console.log(req.body.prdtid);
-    const id = Number.parseInt(req.body.prdtid);
-    const d = Tools.getNowDate();
-    const prdtDesc = req.body.txtPrdtDesc1.replace(/[,'']/g, "");
-
-    const query = `
-        UPDATE products 
-        SET 
-          category = :category,
-          product_name = :product_name,
-          selling_price = :selling_price,
-          prdt_desc = :prdt_desc,
-          prdt_area = :prdt_area,
-          prdt_type = :prdt_type,
-          prdt_state = :prdt_state,
-          prdt_lgv = :prdt_lgv,
-          isFunished = :isFunished,
-          isServiced = :isServiced,
-          isShared = :isShared,
-          flag = :flag,
-          dated = :dated,
-          size = :size,
-          vid_link = :vid_link,
-          prdt_address = :prdt_address,
-          t_toilet = :t_toilet,
-          t_bathroom = :t_bathroom,
-          parking_space = :parking_space,
-          isAvailable = :isAvailable,
-          whatsapp_no = :whatsapp_no
-        WHERE id = :id
-      `;
-
-    // console.log(query)
-
-    await sequelize
-      .query(query, {
-        replacements: {
-          category: req.body.cboCat1.toUpperCase().trim(),
-          product_name: req.body.prdtName1.toUpperCase().trim(),
-          selling_price: req.body.txtPrice1.toUpperCase().trim(),
-          prdt_desc: prdtDesc,
-          prdt_area: req.body.txtArea1.toUpperCase().trim(),
-          prdt_type: req.body.cboType1.toUpperCase().trim(),
-          prdt_state: req.body.cboState1.toUpperCase().trim(),
-          prdt_lgv: req.body.cboLgv1.toUpperCase().trim(),
-          isFunished: req.body.cboIsFurnished1.toUpperCase().trim(),
-          isServiced: req.body.cboIsServiced1.toUpperCase().trim(),
-          isShared: req.body.cboIsShared1.toUpperCase().trim(),
-          flag:
-            req.body.txtStatus1 === ""
-              ? ""
-              : req.body.txtStatus1.toUpperCase().trim(),
-          dated: d,
-          size: req.body.cboSize1.toUpperCase().trim(),
-          vid_link: req.body.txtVidLink1,
-          prdt_address: req.body.txtAddress1.trim(),
-          t_toilet: req.body.cboToilet1.trim(),
-          t_bathroom: req.body.cboBathe1.toUpperCase().trim(),
-          parking_space: req.body.cboPark1.toUpperCase().trim(),
-          isAvailable: req.body.cboIsAvalaible1.toUpperCase().trim(),
-          whatsapp_no: "",
-          id: id, // assuming `id` is defined and holds the product's ID
-        },
-        type: sequelize.QueryTypes.UPDATE,
-      })
-      .then((val) => {
-        res.status(200).json({
-          message: "Record Updated",
-          success: true,
-        });
-      });
-
-    //await cProduct.Updateproduct(id, req.body);
-  }
-});
 
 module.exports = router;

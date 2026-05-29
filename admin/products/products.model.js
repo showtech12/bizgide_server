@@ -63,6 +63,12 @@ Products.init(
     piecies_value: {
       type: DataTypes.STRING,
     },
+    mfg_date:{
+      type: DataTypes.STRING,
+    },
+    expiry_date:{
+      type: DataTypes.STRING,
+    }
    
    
   
