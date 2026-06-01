@@ -7,6 +7,7 @@ const Products = require("./admin/products/products.routes");
 const Orders = require("./admin/order/orders.routes");
 const AuthRouter = require("./admin/auth/auth.routes");
 const BackupRouter = require("./admin/backup/backup.routes");
+const SettingsRouter = require("./admin/settings/settings.routes");
 
 const bodyParser = require("body-parser");
 const cors = require("cors");
@@ -22,7 +23,7 @@ express.urlencoded();
 
 
 const allowedOrigins = [
- "https://demo.accusoftapp.com",
+ "https://demo.bizgide.com",
  'http://localhost:5173'
   
 ];
@@ -70,6 +71,7 @@ app.use(UsersRouter);
 app.use(Orders);
 app.use(AuthRouter);
 app.use(BackupRouter);
+app.use(SettingsRouter);
 
 const PORT = 5005;
 

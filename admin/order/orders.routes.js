@@ -53,15 +53,28 @@ router.get("/api/v1/posproduct", verifyAdmin, async (req, res) => {
   try {
     sequelize
       .query(
-        `   SELECT 
+        ` SELECT 
     p.id,
     p.bar_code,
     p.product_name,
-   
     p.product_code,
     p.vat_amtz,
-  
+
     IFNULL(d.total_stock, 0) AS qbal,
+
+    p.mfg_date,
+    p.expiry_date,
+
+    DATEDIFF(p.expiry_date, CURDATE()) AS days_left,
+
+    DATEDIFF(p.expiry_date, p.mfg_date) AS total_days,
+
+    ROUND(
+        (
+            DATEDIFF(p.expiry_date, CURDATE()) /
+            NULLIF(DATEDIFF(p.expiry_date, p.mfg_date), 0)
+        ) * 100
+    ) AS percent_remaining,
 
     JSON_ARRAYAGG(
         JSON_OBJECT(
@@ -76,25 +89,20 @@ FROM products p
 
 LEFT JOIN (
     SELECT 
-        d.product_id, 
+        d.product_id,
         SUM(d.stock_bal) AS total_stock
     FROM order_details d
-    JOIN orders o ON o.id = d.orders_id
+    INNER JOIN orders o 
+        ON o.id = d.orders_id
     WHERE o.store = '1'
     GROUP BY d.product_id
-) d ON p.id = d.product_id
+) d 
+    ON p.id = d.product_id
 
- JOIN tblunit u ON u.product_id = p.id
+INNER JOIN tblunit u 
+    ON u.product_id = p.id
 
-GROUP BY 
-    p.id,
-    p.bar_code,
-    p.product_name,
-  
-    p.product_code,
-    p.vat_amtz,
-   
-    d.total_stock
+GROUP BY p.id
 
 ORDER BY p.product_name;`,
         { type: sequelize.QueryTypes.SELECT },
@@ -493,7 +501,7 @@ router.get(
   AuthRole("ADMIN", "CASHIER", "USER"),
   async (req, res) => {
     //console.log(req.userDtl.id)
-    const ctype = req.query.ctype
+    const ctype = req.query.ctype;
     try {
       sequelize
         .query(
@@ -873,12 +881,12 @@ ORDER BY p.product_name;`;
 );
 
 router.post("/api/v1/customer", verifyAdmin, async (req, res) => {
-   console.log(req.body)
+  console.log(req.body);
 
-  const { fullname, email, phone, gender, address, city,contactType } = req.body;
+  const { fullname, email, phone, gender, address, city, contactType } =
+    req.body;
 
   const schema = Joi.object({
-
     contactType: Joi.string().min(3).required().messages({
       "string.empty": "Contact Type is required",
       "string.min": "Contact Type must be at least 3 characters",
@@ -888,7 +896,7 @@ router.post("/api/v1/customer", verifyAdmin, async (req, res) => {
       "string.empty": "Customers Name is required",
       "string.min": "Customers Name must be at least 3 characters",
     }),
-    
+
     phone: Joi.string()
       .pattern(/^[0-9]{11}$/) // Nigerian format 11 digits (adjust if needed)
       .required()
@@ -896,10 +904,9 @@ router.post("/api/v1/customer", verifyAdmin, async (req, res) => {
         "string.empty": "Phone number is required",
         "string.pattern.base": "Phone number must be 11 digits",
       }),
-
   });
 
-  const { error } = schema.validate({ fullname, phone,contactType });
+  const { error } = schema.validate({ fullname, phone, contactType });
   if (error) {
     return res
       .status(400)
@@ -916,7 +923,15 @@ router.post("/api/v1/customer", verifyAdmin, async (req, res) => {
 
   try {
     const [result] = await sequelize.query(qry, {
-      replacements: [contactType,fullname, gender, address, phone, city, email],
+      replacements: [
+        contactType,
+        fullname,
+        gender,
+        address,
+        phone,
+        city,
+        email,
+      ],
       type: sequelize.QueryTypes.INSERT,
     });
 
@@ -1414,8 +1429,8 @@ router.post(
 
     let qry = ``;
 
-  if (Ledger == "ALL") {
-    qry = `SELECT
+    if (Ledger == "ALL") {
+      qry = `SELECT
               o.dates,
               d.quantity,
               d.unit_price,
@@ -1499,7 +1514,7 @@ router.post(
           GROUP BY d.id
           ORDER BY d.id;`;
     }
-//console.log(qry)
+    //console.log(qry)
     try {
       sequelize
         .query(qry, { type: sequelize.QueryTypes.SELECT })
@@ -1840,7 +1855,7 @@ router.post(
         message: error.details.map((d) => d.message),
       });
     }
-    console.log(req.body);
+    // console.log(req.body);
     // ===================== EXTRACT VALIDATED DATA =====================
     const {
       store,
@@ -3326,7 +3341,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
         );
 
         if (!selectedUnit) {
-         // console.log("Unit not found for", item.product_name);
+          // console.log("Unit not found for", item.product_name);
           continue;
         }
 
@@ -3601,7 +3616,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
         );
 
         if (!selectedUnit) {
-         // console.log("Unit not found for", item.product_name);
+          // console.log("Unit not found for", item.product_name);
           continue;
         }
 
@@ -3838,7 +3853,6 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
       );
 
       for (let item of cart) {
-
         let QtyType = item.prdtType;
 
         const selectedUnit = item.units.find(
@@ -3846,7 +3860,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
         );
 
         if (!selectedUnit) {
-         // console.log("Unit not found for", item.product_name);
+          // console.log("Unit not found for", item.product_name);
           continue;
         }
 
@@ -3867,7 +3881,6 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
         let stk_bal = BaseQty;
         let qtyBal = Number(item.qbal) + BaseQty;
         let stkBalVal = sellp;
-       
 
         const [insertDetail] = await sequelize.query(
           `INSERT INTO order_details (
@@ -3915,7 +3928,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
       // invoice_no: inv_no
     });
   } catch (error) {
-   // console.error(error);
+    // console.error(error);
     return res.status(500).json({
       success: false,
       message: "Error creating order",
@@ -3925,15 +3938,93 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
 });
 
 router.get(
+  "/api/v1/stockout",
+  verifyAdmin,
+  AuthRole("ADMIN", "CASHIER"),
+  async (req, res) => {
+    //console.log(req.userDtl.id)
+   const miniVal = req.query.mv;
+
+    try {
+      sequelize
+        .query(
+          `   SELECT 
+    s.stk,
+    pr.id,
+    pr.product_name,
+    pr.product_code,
+
+    JSON_ARRAYAGG(
+        JSON_OBJECT(
+            'unit_measure', u.unit_measure,
+            'pieces_in', u.pieces_in,
+            'unitprice', u.unitprice,
+            'costprice', u.costprice
+        )
+    ) AS units
+
+FROM products pr
+
+-- Stock calculation
+JOIN (
+    SELECT 
+        d.product_id,
+        SUM(d.stock_bal) AS stk
+    FROM order_details d
+    JOIN orders o 
+        ON d.orders_id = o.id
+    WHERE o.store = '1'
+    GROUP BY d.product_id
+) s 
+    ON s.product_id = pr.id
+
+-- Units
+LEFT JOIN tblunit u 
+    ON u.product_id = pr.id
+
+GROUP BY pr.id
+
+HAVING s.stk <= ${miniVal};
+                `,
+          { type: sequelize.QueryTypes.SELECT },
+        )
+
+        .then((results) => {
+          // console.log('Query result:', results);
+          res.status(200).json({
+            success: true,
+            message: "success",
+            total: results.length,
+            data: results,
+          });
+        })
+        .catch((error) => {
+          //console.error('Error fetching data:', error);
+          res.status(200).json({
+            success: false,
+            data: "",
+          });
+        });
+    } catch (error) {
+      console.log(error);
+      res.status(200).json({
+        success: false,
+        message: error,
+      });
+    }
+
+    //
+  },
+);
+
+router.get(
   "/api/v1/allinv",
   verifyAdmin,
   AuthRole("ADMIN", "CASHIER"),
   async (req, res) => {
     //console.log(req.userDtl.id)
 
-
-
-//SELECT SUM(stock_bal) AS stk , pr.product_name, pr.selling_price, pr.product_code, pr.unit_sell_price, pr.piecies_value FROM products pr , order_details d, orders o WHERE o.store='1' AND d.orders_id = o.id AND d.product_id = pr.id GROUP BY d.product_id
+    //SELECT SUM(stock_bal) AS stk , pr.product_name, pr.selling_price, pr.product_code, pr.unit_sell_price, pr.piecies_value FROM products pr , order_details d, orders o WHERE o.store='1' AND d.orders_id = o.id AND d.product_id = pr.id GROUP BY d.product_id
 
     try {
       sequelize
@@ -4132,14 +4223,12 @@ router.get("/api/v1/stores", verifyAdmin, async (req, res) => {
   //
 });
 
-
 router.post(
   "/api/v1/profitloss",
   verifyAdmin,
   AuthRole("ADMIN"),
   async (req, res) => {
-
-    console.log(req.body)
+    console.log(req.body);
     try {
       const { cboTime, cboCatSel } = req.body;
 
@@ -4156,17 +4245,16 @@ router.post(
 
       if (cboCatSel === "Monthly") {
         dateFilter = `AND t.month_num = '${cboTime}' AND t.Year = '${year}'`;
-       // params = [cboTime, year];
+        // params = [cboTime, year];
 
         const [[minMonth]] = await sequelize.query(
-          "SELECT MIN(month_num) AS lstM FROM tbltimes"
+          "SELECT MIN(month_num) AS lstM FROM tbltimes",
         );
 
         const lastMonth = String(parseInt(cboTime) - 1).padStart(2, "0");
 
-        dateFilterStock =
-          `AND t.month_num BETWEEN '${minMonth.lstM}' AND '${lastMonth}' AND t.Year = '${year}'`;
-       // paramsStock = [minMonth.lstM, lastMonth, year];
+        dateFilterStock = `AND t.month_num BETWEEN '${minMonth.lstM}' AND '${lastMonth}' AND t.Year = '${year}'`;
+        // paramsStock = [minMonth.lstM, lastMonth, year];
       }
 
       if (cboCatSel === "Quaterly") {
@@ -4175,11 +4263,9 @@ router.post(
 
         const [[minQuarter]] = await sequelize.query(
           `SELECT MIN(Quarter) AS lstM FROM tbltimes WHERE Year = '${year}'`,
-         
         );
 
-        dateFilterStock =
-          `AND t.Quarter BETWEEN '${minQuarter.lstM}' AND '${cboTime}' AND t.Year = '${year}'`;
+        dateFilterStock = `AND t.Quarter BETWEEN '${minQuarter.lstM}' AND '${cboTime}' AND t.Year = '${year}'`;
         //paramsStock = [minQuarter.lstM, cboTime, year];
       }
 
@@ -4195,7 +4281,7 @@ router.post(
       // 🔥 MAIN AGGREGATED QUERY
       // =========================
 
-      const qry =  `
+      const qry = `
         SELECT
           COALESCE(SUM(CASE WHEN d.order_mode = 'Sold' THEN d.total_line END),0) AS sold,
           COALESCE(SUM(CASE WHEN d.order_mode = 'Sold' THEN d.total_costline END),0) AS sold_cost,
@@ -4213,13 +4299,12 @@ router.post(
         JOIN tbltimes t ON t.id = d.time_id
         WHERE d.order_mode IN ('Sold','Returnin','Bought','Transfer','stockin','Returnout')
         ${dateFilter}
-        `
+        `;
 
-        //console.log(qry)
-       // console.log(params)
+      //console.log(qry)
+      // console.log(params)
 
-      const [summaryRows] = await sequelize.query( qry
-      );
+      const [summaryRows] = await sequelize.query(qry);
 
       const data = summaryRows[0];
 
@@ -4227,8 +4312,8 @@ router.post(
       // STOCK VALUE
       // =========================
 
-      console.log(dateFilterStock)
-      console.log(paramsStock)
+      console.log(dateFilterStock);
+      console.log(paramsStock);
 
       const [[stockRow]] = await sequelize.query(
         `
@@ -4237,7 +4322,7 @@ router.post(
         JOIN tbltimes t ON t.id = d.time_id
         WHERE 1=1 ${dateFilterStock}
         `,
-       // paramsStock
+        // paramsStock
       );
 
       //console.log(stockRow)
@@ -4253,8 +4338,7 @@ router.post(
         WHERE tr.personid = '6' 
         AND tr.ledger_id = '14'
         ${dateFilter}
-        `
-      
+        `,
       );
 
       // =========================
@@ -4273,7 +4357,7 @@ router.post(
         WHERE p.la_id = '7'
         ${dateFilter}
         GROUP BY p.id, p.full_name
-        `
+        `,
       );
 
       // =========================
@@ -4281,10 +4365,10 @@ router.post(
       // =========================
 
       const sold = Number(data.sold);
-      const returnIn =Number( data.return_in);
+      const returnIn = Number(data.return_in);
       const returnOut = Number(data.return_out);
       const purchases = Number(data.purchases);
-      const costsold = Number(data.sold_cost)
+      const costsold = Number(data.sold_cost);
 
       const discountAllowed = Number(data.discount_allowed);
       const discountReceived = Number(data.discount_received);
@@ -4293,16 +4377,17 @@ router.post(
       const otherIncome = Number(incomeRow.other_income);
 
       const sales = sold - returnIn;
-      
 
-      const Tavail = purchases + Number(data.return_in_cost) + stockValue - (returnOut + Number( data.sold_cost));
+      const Tavail =
+        purchases +
+        Number(data.return_in_cost) +
+        stockValue -
+        (returnOut + Number(data.sold_cost));
 
-      const costOfSales = (purchases + stockValue) - (returnOut + Tavail);
-      console.log(costOfSales); 
-    
+      const costOfSales = purchases + stockValue - (returnOut + Tavail);
+      console.log(costOfSales);
 
       const grossProfit = Number(sales) - Number(costOfSales);
-       
 
       let totalExpenses = 0;
 
@@ -4311,13 +4396,15 @@ router.post(
         return e;
       });
 
-      const netProfit = grossProfit + (discountReceived||0 + otherIncome||0) -(totalExpenses||0 + discountAllowed||0);
+      const netProfit =
+        grossProfit +
+        (discountReceived || 0 + otherIncome || 0) -
+        (totalExpenses || 0 + discountAllowed || 0);
 
-        
-        console.log(grossProfit); 
-        console.log(otherIncome); 
-        console.log(discountAllowed); 
-        console.log(netProfit); 
+      console.log(grossProfit);
+      console.log(otherIncome);
+      console.log(discountAllowed);
+      console.log(netProfit);
 
       // =========================
       // RESPONSE
@@ -4352,7 +4439,7 @@ router.post(
         message: "Server error",
       });
     }
-  }
+  },
 );
 //==================================
 

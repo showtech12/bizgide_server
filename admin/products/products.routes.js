@@ -616,6 +616,9 @@ router.get(
   verifyAdmin,
   AuthRole("ADMIN", "CASHIER"),
   async (req, res) => {
+    const perct_value = Number(req.query.pv);
+
+    console.log(perct_value)
 
     try {
 
@@ -647,11 +650,13 @@ router.get(
           expired.push(product);
         }
 
-        else if (product.percent_remaining <= 50) {
+        else if (product.percent_remaining <= perct_value) {
+          console.log(product.percent_remaining )
+          //console.log(product.id )
           critical.push(product);
         }
 
-        else if (product.days_left <= 35) {
+        else if (product.days_left == 10) {
           expiringSoon.push(product);
         }
 
