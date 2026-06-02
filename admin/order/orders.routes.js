@@ -3949,42 +3949,42 @@ router.get(
       sequelize
         .query(
           `   SELECT 
-    s.stk,
-    pr.id,
-    pr.product_name,
-    pr.product_code,
+                s.stk,
+                pr.id,
+                pr.product_name,
+                pr.product_code,
 
-    JSON_ARRAYAGG(
-        JSON_OBJECT(
-            'unit_measure', u.unit_measure,
-            'pieces_in', u.pieces_in,
-            'unitprice', u.unitprice,
-            'costprice', u.costprice
-        )
-    ) AS units
+                JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        'unit_measure', u.unit_measure,
+                        'pieces_in', u.pieces_in,
+                        'unitprice', u.unitprice,
+                        'costprice', u.costprice
+                    )
+                ) AS units
 
-FROM products pr
+            FROM products pr
 
--- Stock calculation
-JOIN (
-    SELECT 
-        d.product_id,
-        SUM(d.stock_bal) AS stk
-    FROM order_details d
-    JOIN orders o 
-        ON d.orders_id = o.id
-    WHERE o.store = '1'
-    GROUP BY d.product_id
-) s 
-    ON s.product_id = pr.id
+            -- Stock calculation
+            JOIN (
+                SELECT 
+                    d.product_id,
+                    SUM(d.stock_bal) AS stk
+                FROM order_details d
+                JOIN orders o 
+                    ON d.orders_id = o.id
+                WHERE o.store = '1'
+                GROUP BY d.product_id
+            ) s 
+                ON s.product_id = pr.id
 
--- Units
-LEFT JOIN tblunit u 
-    ON u.product_id = pr.id
+            -- Units
+            LEFT JOIN tblunit u 
+                ON u.product_id = pr.id
 
-GROUP BY pr.id
+            GROUP BY pr.id
 
-HAVING s.stk <= ${miniVal};
+            HAVING s.stk <= ${miniVal};
                 `,
           { type: sequelize.QueryTypes.SELECT },
         )

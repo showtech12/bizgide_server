@@ -16,7 +16,7 @@ const sequelize = require("../../config/database");
 
 router.post("/api/v1/settings", verifyAdmin, async (req, res, next) => {
   try {
-    // console.log(req.body);
+     console.log(req.body);
 
     const settingsSchema = Joi.object({
       expiringAlertPercent: Joi.number().min(0).max(100).required().messages({
@@ -37,6 +37,10 @@ router.post("/api/v1/settings", verifyAdmin, async (req, res, next) => {
         "number.min": "Price margin percent cannot be less than 0",
         "number.max": "Price margin percent cannot be greater than 100",
         "any.required": "Price margin percent is required",
+      }),
+
+      currency: Joi.string().trim().min(3).required().messages({
+        "string.empty": "Currency is required",
       }),
     });
 
@@ -61,7 +65,8 @@ router.post("/api/v1/settings", verifyAdmin, async (req, res, next) => {
       SET
         expiring_perct = :expiringAlertPercent,
         stock_out_perct = :stockOutPercent,
-        profit_margin_perct = :priceMarginPercent
+        profit_margin_perct = :priceMarginPercent,
+        currency = :currency
       WHERE id = 1
       `,
       {
@@ -69,12 +74,13 @@ router.post("/api/v1/settings", verifyAdmin, async (req, res, next) => {
           expiringAlertPercent: value.expiringAlertPercent,
           stockOutPercent: value.stockOutPercent,
           priceMarginPercent: value.priceMarginPercent,
+          currency: value.currency,
         },
         type: sequelize.QueryTypes.UPDATE,
       },
     );
 
-    console.log("success");
+    //console.log("success");
 
     return res.status(200).json({
       success: true,
@@ -130,5 +136,39 @@ router.get(
     //
   },
 );
+
+router.post("/api/v1/setmargin", verifyAdmin, async (req, res, next) => {
+  console.log(req.body);
+  m_perct = Number(req.body.margin_pect);
+
+  try {
+    await sequelize.query(
+      `
+    UPDATE tblunit
+    SET unitprice = costprice * (1 + :mPerct);
+  `,
+      {
+        replacements: {
+          mPerct: m_perct / 100,
+        },
+        type: sequelize.QueryTypes.UPDATE,
+      },
+    );
+
+    //console.log("success");
+
+    return res.status(200).json({
+      success: true,
+      message: "Successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
 
 module.exports = router;
