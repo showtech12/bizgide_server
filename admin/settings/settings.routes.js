@@ -99,7 +99,7 @@ router.post("/api/v1/settings", verifyAdmin, async (req, res, next) => {
 router.get(
   "/api/v1/settings",
   verifyAdmin,
-  //authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("settings"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
 
@@ -180,7 +180,7 @@ router.get(
 router.post(
   "/api/v1/uptroles",
   verifyAdmin,
-  //authorizePermission("uptroles"),
+  authorizePermission("settings"),
   async (req, res, next) => {
      console.log(req.body);
     //m_perct = Number(req.body.margin_pect);
@@ -277,7 +277,7 @@ message: "Server error",
 router.post(
   "/api/v1/setmargin",
   verifyAdmin,
-  authorizePermission("pmargin"),
+  authorizePermission("settings"),
   async (req, res, next) => {
     // console.log(req.body);
     m_perct = Number(req.body.margin_pect);
@@ -285,9 +285,9 @@ router.post(
     try {
       await sequelize.query(
         `
-    UPDATE tblunit
-    SET unitprice = costprice * (1 + :mPerct);
-  `,
+        UPDATE tblunit
+        SET unitprice = costprice * (1 + :mPerct);
+      `,
         {
           replacements: {
             mPerct: m_perct / 100,

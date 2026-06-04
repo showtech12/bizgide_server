@@ -266,7 +266,7 @@ router.get("/api/v1/user/:id", verifyAdmin, idNumControl, async (req, res) => {
 router.post(
   "/api/v1/userupdate",
   verifyAdmin,
-  authorizePermission("ADMIN"),
+  authorizePermission("users"),
   async (req, res) => {
     //const authUser = req.authedUser;
     //const id = req.params.id;
@@ -299,7 +299,7 @@ router.post(
 router.post(
   "/api/v1/deleteuser",
   verifyAdmin,
-  authorizePermission("ADMIN"),
+  authorizePermission("users"),
   idNumControlPOST,
   async (req, res, next) => {
     console.log(req.body.id);
@@ -330,7 +330,7 @@ router.get("/api/v1/logout", (req, res) => {
 router.get(
   "/api/v1/verify_token",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER", "USER"),
+  //authorizePermission("ADMIN"),
   async (req, res, next) => {
     // console.log(req.body.token);
     // console.log(req.userDtl)

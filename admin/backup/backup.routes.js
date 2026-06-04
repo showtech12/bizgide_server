@@ -17,7 +17,7 @@ const execAsync = util.promisify(exec);
 router.get(
   "/api/v1/lastBackup",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("backup"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
 

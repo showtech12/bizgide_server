@@ -208,7 +208,7 @@ router.get("/api/v1/poscustomer", verifyAdmin, async (req, res) => {
 router.get(
   "/api/v1/expenseacct",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("expenses"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     let cusType = req.query.cusType;
@@ -251,7 +251,7 @@ router.get(
 router.get(
   "/api/v1/capitalacct",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("capital"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     let cusType = req.query.cusType;
@@ -294,7 +294,7 @@ router.get(
 router.get(
   "/api/v1/cashbookacct",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("cashbook"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     let cusType = req.query.cusType;
@@ -373,7 +373,7 @@ router.get("/api/v1/wallets", verifyAdmin, async (req, res) => {
 router.get(
   "/api/v1/walletsCB",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("cashbook"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
 
@@ -414,7 +414,7 @@ router.get(
 router.get(
   "/api/v1/jornals",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("journals"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
 
@@ -455,7 +455,7 @@ router.get(
 router.get(
   "/api/v1/jornalsSub",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("journals"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
 
@@ -540,7 +540,7 @@ router.get(
 router.get(
   "/api/v1/customeranal",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("cusanalys"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
 
@@ -582,7 +582,7 @@ router.get(
 router.get(
   "/api/v1/getledgerdtl",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("ledgerbal"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     const id = req.query.id;
@@ -625,7 +625,7 @@ router.get(
 router.get(
   "/api/v1/trialbalance",
   verifyAdmin,
-  authorizePermission("ADMIN"),
+  authorizePermission("trailbal"),
   async (req, res) => {
     try {
       /* ===============================
@@ -729,7 +729,7 @@ router.get(
 router.post(
   "/api/v1/getledgerbal",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("ledgerbal"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     //const id = req.query.id;
@@ -960,7 +960,7 @@ router.post("/api/v1/customer", verifyAdmin, async (req, res) => {
 router.post(
   "/api/v1/savejournal",
   verifyAdmin,
-  authorizePermission("ADMIN"),
+  authorizePermission("journals"),
   async (req, res) => {
     const { txtLedgerName, JournalID, ledgerLabel } = req.body;
     const d = new Date().toISOString().split("T")[0];
@@ -1367,18 +1367,9 @@ router.post(
 router.post(
   "/api/v1/singleinv",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("inventory"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
-    //console.log(req.body);
-
-    //   {
-    //   store: '1',
-    //   product: '323',
-    //   Ledger: '20',
-    //   dateTo: '2026-01-08',
-    //   dateFrom: '2025-12-05'
-    // }
+    
 
     const schema = Joi.object({
       store: Joi.number().integer().positive().required().messages({
@@ -1516,7 +1507,7 @@ router.post(
           GROUP BY d.id
           ORDER BY d.id;`;
     }
-    //console.log(qry)
+    console.log(qry)
     try {
       sequelize
         .query(qry, { type: sequelize.QueryTypes.SELECT })
@@ -1552,10 +1543,10 @@ router.post(
 router.post(
   "/api/v1/salesrecord",
   verifyAdmin,
-  authorizePermission("ADMIN"),
+  authorizePermission("salesrecord"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
-    console.log(req.body);
+    //console.log(req.body);
 
     const schema = Joi.object({
       store: Joi.number().integer().positive().required().messages({
@@ -1682,7 +1673,7 @@ router.post(
 router.post(
   "/api/v1/salesinc",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("salesincome"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     // console.log(req.body);
@@ -1799,7 +1790,7 @@ router.post(
 router.post(
   "/api/v1/salesanal",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("saleanalysis"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     // console.log(req.body);
@@ -1914,7 +1905,7 @@ router.post(
 router.post(
   "/api/v1/evacuaterec",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("evacuate"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     // console.log(req.body);
@@ -2092,7 +2083,7 @@ router.post(
 router.post(
   "/api/v1/getpost",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("post"),
   async (req, res) => {
     try {
       // ===================== VALIDATION SCHEMA =====================
@@ -2264,7 +2255,7 @@ router.post(
 router.post(
   "/api/v1/getexpense",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("expenses"),
   async (req, res) => {
     try {
       // ===================== VALIDATION SCHEMA =====================
@@ -2446,7 +2437,7 @@ router.post(
 router.post(
   "/api/v1/getcapital",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("capital"),
   async (req, res) => {
     try {
       // ===================== VALIDATION SCHEMA =====================
@@ -2627,7 +2618,7 @@ router.post(
 router.post(
   "/api/v1/getcashbook",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("cashbook"),
   async (req, res) => {
     try {
       // ===================== VALIDATION SCHEMA =====================
@@ -2804,7 +2795,7 @@ router.post(
 router.post(
   "/api/v1/postotherincome",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("otherincome"),
   async (req, res) => {
     try {
       // ===================== VALIDATION SCHEMA =====================
@@ -2987,7 +2978,7 @@ router.post(
 router.post(
   "/api/v1/postprev",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("prev"),
   async (req, res) => {
     try {
       // ===================== VALIDATION SCHEMA =====================
@@ -3943,7 +3934,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
 router.get(
   "/api/v1/stockout",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("stockout"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     const miniVal = req.query.mv;
@@ -4023,11 +4014,11 @@ router.get(
 router.get(
   "/api/v1/allinv",
   verifyAdmin,
-  authorizePermission("ADMIN", "CASHIER"),
+  authorizePermission("all_inventory"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
 
-    //SELECT SUM(stock_bal) AS stk , pr.product_name, pr.selling_price, pr.product_code, pr.unit_sell_price, pr.piecies_value FROM products pr , order_details d, orders o WHERE o.store='1' AND d.orders_id = o.id AND d.product_id = pr.id GROUP BY d.product_id
+   
 
     try {
       sequelize
@@ -4229,7 +4220,7 @@ router.get("/api/v1/stores", verifyAdmin, async (req, res) => {
 router.post(
   "/api/v1/profitloss",
   verifyAdmin,
-  authorizePermission("ADMIN"),
+  authorizePermission("statement"),
   async (req, res) => {
     console.log(req.body);
     try {
