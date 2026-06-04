@@ -20,7 +20,7 @@ const {
 } = require("../../validate/validate_input");
 const path = require("path");
 const fs = require("fs");
-const AuthRole = require("../auth_role.js");
+const authorizePermission = require("../auth_role.js");
 //const sharp = require('sharp');
 
 router.post("/api/v1/images", verifyAdmin, async (req, res) => {
@@ -42,82 +42,14 @@ router.post("/api/v1/images", verifyAdmin, async (req, res) => {
   });
 });
 
-// router.post("/api/v1/uploadAll", verifyAdmin, UpldVeri, async (req, res) => {
-
-//   const prdtid = req.body.prdtid;
-
-//   if (!req.files || req.files.length === 0 || req.files.length > 7) {
-//     return res.status(400).json({ message: 'No files were uploaded or too many files.' });
-//   }
-
-//   // Set output directory
-//   const outputDir = path.join(__dirname, '../../uploads/' + prdtid + '/');
-
-//   // Ensure the 'uploads/' directory exists
-//   if (!fs.existsSync(outputDir)) {
-//     fs.mkdirSync(outputDir, { recursive: true });
-//   }
-
-//   try {
-//     let x = 0;
-//     const promises = req.files.map(async (file) => {
-//       x += 1;
-//       const extension = path.extname(file.originalname).toLowerCase();
-//       const resizedImagePath = `/uploads/${prdtid}/pix${x}${extension}`;  // Relative path for response
-//       const absoluteImagePath = path.join(__dirname, `../../uploads/${prdtid}/pix${x}${extension}`);  // Absolute path for saving
-
-//       // Resize and add text to the image using sharp
-//       await sharp(file.buffer)
-//       .resize({ width: 600, height: 450, fit: 'cover', kernel: sharp.kernel.lanczos3 }) // Use Lanczos3 for high-quality resizing
-
-//         .composite([{
-//           input: Buffer.from(
-//             `<svg width="500" height="50">
-//               <text x="130" y="35" font-size="30" fill="#cbd2d9">Cool Real Estate Property</text>
-//             </svg>`
-//           ),
-//           gravity: 'center' // Position the text at the bottom
-//         }])
-//         .toFile(absoluteImagePath);  // Save to the absolute path
-
-//       return resizedImagePath;  // Return the relative path
-//     });
-
-//     const processedImages = await Promise.all(promises);
-
-//     await fs.readdir(outputDir, (err, files) => {
-//       if (err) {
-//        // return res.status(500).json({message:'Unable to scan directory: ' + err});
-//         return res.status(400).json({message:'No Property Image Uploaded'});
-//       }
-
-//       const images = files.filter(file => /\.(jpg|jpeg|png|gif)$/i.test(file));
-
-//       //const imagePaths = images.map(file => `uploads/${prdtid}/${file}`);
-//       const imagePaths = images.map(file => `uploads/${prdtid}/${file}`);
-//      // res.json({ images: imagePaths });
-//      //pix_paths
-//      sequelize.query(`UPDATE products SET pix_paths='${imagePaths}' WHERE id='${prdtid}' `, { type: sequelize.QueryTypes.UPDATE });
-
-//       res.json({ message: 'Images uploaded and processed successfully', images: imagePaths });
-
-//     });
-
-//   } catch (error) {
-//     console.error('Error processing images:', error);
-//     res.status(500).send('Error processing images.');
-//   }
-
-// });
-
 router.post(
   "/api/v1/product",
   verifyAdmin,
-  AuthRole("ADMIN", "CASHIER"),
+  authorizePermission("products"),
   async (req, res, next) => {
     // console.log(req.userDtl);
     //console.log(req.body);
-    const usr_id = req.userDtl.id;
+    const usr_id = req.userDtl[0].id;
     const { error, value } = ProductSchema.validate(req.body);
 
     if (error) {
@@ -143,7 +75,7 @@ router.post(
         bar_code: req.body.txtBarcode,
         size: "",
         selling_price: 0,
-         unit_sell_price: 0,
+        unit_sell_price: 0,
         cost_price: 0,
         model: "",
         brand: "",
@@ -157,9 +89,8 @@ router.post(
         // piecies_value: req.body.txtPcsInWhole,
         product_code: "100",
         dated: d,
-        mfg_date:req.body.txtMfDate,
-        expiry_date:req.body.txtExpDate,
-
+        mfg_date: req.body.txtMfDate,
+        expiry_date: req.body.txtExpDate,
       };
 
       // console.log(myData)
@@ -171,35 +102,30 @@ router.post(
       await cProduct.getRecByID("id", act_no1, Max_ID);
 
       const [insertResult] = await sequelize.query(
-      `INSERT INTO tblunit (product_id, unit_measure, pieces_in, unitprice, costprice)
+        `INSERT INTO tblunit (product_id, unit_measure, pieces_in, unitprice, costprice)
               VALUES (?, 'PIECES', '1', ?, ?)`,
-      {
-        replacements: [Max_ID, req.body.txtPrice, req.body.txtCostPrice],
-        type: sequelize.QueryTypes.INSERT,
-      },
-    );
+        {
+          replacements: [Max_ID, req.body.txtPrice, req.body.txtCostPrice],
+          type: sequelize.QueryTypes.INSERT,
+        },
+      );
 
-    if(insertResult){
-
+      if (insertResult) {
         res.status(200).json({
-        success: true,
-        message: "Successful",
-        
-      });
-
-    }
-
+          success: true,
+          message: "Successful",
+        });
+      }
     }
   },
 );
 
-
 router.post("/api/v1/addunit", verifyAdmin, async (req, res, next) => {
-  //const usr_id = req.userDtl.dataValues.id;
+  //const usr_id = req.userDtl[0].dataValues.id;
 
   const Joi = require("joi");
 
-  console.log(req.body)
+  console.log(req.body);
 
   const unitSchema = Joi.object({
     txtUnitPrdt_Id: Joi.number().integer().required().messages({
@@ -224,9 +150,7 @@ router.post("/api/v1/addunit", verifyAdmin, async (req, res, next) => {
 
     txtUnitCostprice: Joi.number().required().messages({
       "number.base": "Cost price must be a number",
-     
     }),
-
   });
 
   // ✅ VALIDATION STEP
@@ -239,9 +163,9 @@ router.post("/api/v1/addunit", verifyAdmin, async (req, res, next) => {
       // success: false,
       // message: error.details.map((e) => e.message),
 
-        success: false,
-        code: 400,
-        message: error.details[0].message.replace(/\"/g, ""),
+      success: false,
+      code: 400,
+      message: error.details[0].message.replace(/\"/g, ""),
     });
   }
 
@@ -277,13 +201,12 @@ router.post("/api/v1/addunit", verifyAdmin, async (req, res, next) => {
   }
 });
 
-
 router.post("/api/v1/updateunit", verifyAdmin, async (req, res, next) => {
-  //const usr_id = req.userDtl.dataValues.id;
+  //const usr_id = req.userDtl[0].dataValues.id;
 
   const Joi = require("joi");
 
-  console.log(req.body)
+  console.log(req.body);
 
   const unitSchema = Joi.object({
     txtUnitPrdt_Id: Joi.number().integer().required().messages({
@@ -313,9 +236,7 @@ router.post("/api/v1/updateunit", verifyAdmin, async (req, res, next) => {
 
     txtUnitCostprice: Joi.number().required().messages({
       "number.base": "Cost price must be a number",
-     
     }),
-
   });
 
   // ✅ VALIDATION STEP
@@ -328,9 +249,9 @@ router.post("/api/v1/updateunit", verifyAdmin, async (req, res, next) => {
       // success: false,
       // message: error.details.map((e) => e.message),
 
-        success: false,
-        code: 400,
-        message: error.details[0].message.replace(/\"/g, ""),
+      success: false,
+      code: 400,
+      message: error.details[0].message.replace(/\"/g, ""),
     });
   }
 
@@ -343,38 +264,35 @@ router.post("/api/v1/updateunit", verifyAdmin, async (req, res, next) => {
   WHERE id = :id
 `;
 
-try {
-  await sequelize.query(query, {
-    replacements: {
-      id: value.id,
-     // unit_measure: value.UnitMesure,
-      pieces_in: value.txtPiecesValue,
-      unitprice: value.txtUnitSellPrice,
-      costprice: value.txtUnitCostprice,
-    },
-    type: sequelize.QueryTypes.UPDATE,
-  });
+  try {
+    await sequelize.query(query, {
+      replacements: {
+        id: value.id,
+        // unit_measure: value.UnitMesure,
+        pieces_in: value.txtPiecesValue,
+        unitprice: value.txtUnitSellPrice,
+        costprice: value.txtUnitCostprice,
+      },
+      type: sequelize.QueryTypes.UPDATE,
+    });
 
-  res.status(200).json({
-    success: true,
-    message: "Unit updated successfully",
-  });
-} catch (error) {
-  res.status(500).json({
-    success: false,
-    message: "Update failed",
-    error: error.message,
-  });
-}
-
-
+    res.status(200).json({
+      success: true,
+      message: "Unit updated successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Update failed",
+      error: error.message,
+    });
+  }
 });
-
 
 router.post("/api/v1/product11", verifyAdmin, async (req, res, next) => {
   //console.log(req.userDtl);
   //console.log(req.body)
-  const usr_id = req.userDtl.dataValues.id;
+  const usr_id = req.userDtl[0].dataValues.id;
   // const { error, value } = schema.validate(req.body, { abortEarly: false });
   //const { error, value } = schema.validate(req.body);
 
@@ -500,9 +418,9 @@ router.post("/api/v1/product11", verifyAdmin, async (req, res, next) => {
 router.get(
   "/api/v1/unitmeasures",
   verifyAdmin,
-  AuthRole("ADMIN", "CASHIER"),
+  authorizePermission("products", "view_unit"),
   async (req, res) => {
-   const prdtid = req.query.id
+    const prdtid = req.query.id;
 
     try {
       sequelize
@@ -539,15 +457,13 @@ router.get(
   },
 );
 
-
 router.get(
   "/api/v1/product",
   verifyAdmin,
-  AuthRole("ADMIN", "CASHIER"),
+  authorizePermission("products"),
   async (req, res) => {
-    //console.log(req.userDtl.id)
+    //console.log(req.userDtl[0].id)
 
-   
     // SELECT p.id, p.product_name, p.size, p.selling_price, p.cost_price, p.unit_sell_price, p.product_code, p.vat_amtz, p.category, p.model, p.brand , u.surname , u.othername , u.acct_no , p.bar_code, p.piecies_value FROM products p , tblusers u WHERE flag='SHOW' AND p.user_id = u.id ORDER BY p.id DESC
 
     try {
@@ -614,15 +530,15 @@ router.get(
 router.get(
   "/api/v1/expirenotify",
   verifyAdmin,
-  AuthRole("ADMIN", "CASHIER"),
+  // authorizePermission("ADMIN", "CASHIER"),
   async (req, res) => {
     const perct_value = Number(req.query.pv);
 
-    console.log(perct_value)
+    console.log(perct_value);
 
     try {
-
-      const rows = await sequelize.query(`
+      const rows = await sequelize.query(
+        `
        SELECT 
           *,
           DATEDIFF(expiry_date, CURDATE()) AS days_left,
@@ -636,30 +552,26 @@ router.get(
       FROM products
       WHERE mfg_date IS NOT NULL
         AND expiry_date IS NOT NULL;
-      `, {
-        type: sequelize.QueryTypes.SELECT
-      });
+      `,
+        {
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
 
       const expired = [];
       const critical = [];
       const expiringSoon = [];
 
       for (const product of rows) {
-
         if (product.days_left <= 0) {
           expired.push(product);
-        }
-
-        else if (product.percent_remaining <= perct_value) {
-          console.log(product.percent_remaining )
+        } else if (product.percent_remaining <= perct_value) {
+          console.log(product.percent_remaining);
           //console.log(product.id )
           critical.push(product);
-        }
-
-        else if (product.days_left == 10) {
+        } else if (product.days_left == 10) {
           expiringSoon.push(product);
         }
-
       }
 
       return res.status(200).json({
@@ -675,24 +587,20 @@ router.get(
           expired,
           critical,
           expiringSoon,
-        }
+        },
       });
-
     } catch (error) {
-
       return res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
-
     }
-
-  }
+  },
 );
 
 router.get("/api/v1/productadmin", verifyAdmin, async (req, res) => {
-  //console.log(req.userDtl.id)
-  //   const pages = await cProduct.getAllproductsWhereUserz(req.userDtl.id);
+  //console.log(req.userDtl[0].id)
+  //   const pages = await cProduct.getAllproductsWhereUserz(req.userDtl[0].id);
   //  // console.log(pages);
   //   res.send(pages);
 
@@ -804,7 +712,5 @@ router.post("/api/v1/productUpdt", verifyAdmin, async (req, res) => {
     }
   } catch (error) {}
 });
-
-
 
 module.exports = router;
