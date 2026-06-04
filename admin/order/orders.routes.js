@@ -4000,7 +4000,7 @@ router.get(
           });
         });
     } catch (error) {
-      console.log(error);
+     // console.log(error);
       res.status(200).json({
         success: false,
         message: error,
@@ -4076,7 +4076,7 @@ router.get(
           });
         });
     } catch (error) {
-      console.log(error);
+      //console.log(error);
       res.status(200).json({
         success: false,
         message: error,
@@ -4129,7 +4129,7 @@ router.get("/api/v1/allpinvoice", verifyAdmin, async (req, res) => {
         });
       });
   } catch (error) {
-    console.log(error);
+    //console.log(error);
     res.status(200).json({
       success: false,
       message: error,
@@ -4170,7 +4170,7 @@ router.get("/api/v1/viewRcpt", verifyAdmin, async (req, res) => {
         });
       });
   } catch (error) {
-    console.log(error);
+   // console.log(error);
     res.status(200).json({
       success: false,
       message: error,
@@ -4207,7 +4207,7 @@ router.get("/api/v1/stores", verifyAdmin, async (req, res) => {
         });
       });
   } catch (error) {
-    console.log(error);
+   // console.log(error);
     res.status(200).json({
       success: false,
       message: error,
@@ -4222,7 +4222,7 @@ router.post(
   verifyAdmin,
   authorizePermission("statement"),
   async (req, res) => {
-    console.log(req.body);
+    //console.log(req.body);
     try {
       const { cboTime, cboCatSel } = req.body;
 
