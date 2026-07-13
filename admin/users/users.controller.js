@@ -22,7 +22,7 @@ const getRecByID = async (col, colval, id) => {
 
 const getChangePass = async(Email,ResetCode,newpass)=>{
   const user1 = await user.findOne({ where: { email: Email } });
-  console.log(user1.PassWord)
+  //console.log(user1.PassWord)
   if (user1.PassWord == ResetCode){
         user1.PassWord = newpass;
         await user1.save();
@@ -119,7 +119,7 @@ const getUser = async (id) => {
 
 const UpdateUser = async (id, body) => {
   const d = Tools.getNowDate();
-   console.log(body)
+   //console.log(body)
   const user1 = await user.findOne({ where: { id: id } });
 
   //   {
@@ -139,6 +139,7 @@ const UpdateUser = async (id, body) => {
   user1.email = body.email;
   user1.User_Name = body.username.toUpperCase();
   user1.position = body.position.toUpperCase();
+  user1.role_id = body.role_id;
   user1.phone = body.phone;
   //const hashPass = await bcryptjs.hash(body.txtPassW1, 10);
   const hashPass = body.password;

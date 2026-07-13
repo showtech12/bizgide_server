@@ -156,10 +156,12 @@ router.post("/api/v1/reset", async (req, res, next) => {
 router.post(
   "/api/v1/user",
   verifyAdmin,
-  authorizePermission("ADMIN"),
+  authorizePermission("users"),
   async (req, res) => {
     try {
-      console.log("Create user request:", req.body);
+      //console.log("Create user request:", req.body);
+
+     // return
 
       const { error, value } = UserSchema.validate(req.body); // Validation
 
@@ -206,7 +208,8 @@ router.post(
         acct_no: "",
         User_Name: value.username.toUpperCase(),
         PassWord: hashedPass,
-        position: value.position.toUpperCase(),
+        role_id: value.position.value,
+        position: value.position.label.toUpperCase(),
         IsActive: value.active.toUpperCase(),
         ISLogin: "NO",
         Date_Last_Modified: nowISO,
@@ -214,7 +217,7 @@ router.post(
         Time_Last_Login: nowISO,
         Date_Last_LogOut: nowISO,
         store_id: value.store || 1,
-        store_name: "GREENHEYS CREDIT", // Optional: fetch from store list if needed
+        store_name: "", // Optional: fetch from store list if needed
         gender: value.gender.toUpperCase(),
         createdAt: nowISO,
         Token: token,
@@ -302,7 +305,7 @@ router.post(
   authorizePermission("users"),
   idNumControlPOST,
   async (req, res, next) => {
-    console.log(req.body.id);
+    //console.log(req.body.id);
     await cUser.deleteUser(req.body.id);
 
     res.status(200).json({

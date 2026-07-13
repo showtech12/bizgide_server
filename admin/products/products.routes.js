@@ -125,7 +125,7 @@ router.post("/api/v1/addunit", verifyAdmin, async (req, res, next) => {
 
   const Joi = require("joi");
 
-  console.log(req.body);
+  //console.log(req.body);
 
   const unitSchema = Joi.object({
     txtUnitPrdt_Id: Joi.number().integer().required().messages({
@@ -495,7 +495,7 @@ router.get(
               FROM products p
               JOIN tblunit u ON u.product_id = p.id
               JOIN tblusers uz ON uz.id = p.user_id 
-              GROUP BY p.id, p.product_name, p.selling_price;`,
+              GROUP BY p.id, p.product_name, p.selling_price ORDER BY p.id DESC ;`,
           { type: sequelize.QueryTypes.SELECT },
         )
 

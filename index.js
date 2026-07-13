@@ -23,7 +23,7 @@ express.urlencoded();
 
 
 const allowedOrigins = [
- "https://demo.bizgide.com",
+ "https://app.bizgide.com",
  'http://localhost:5173'
   
 ];
@@ -73,8 +73,8 @@ app.use(AuthRouter);
 app.use(BackupRouter);
 app.use(SettingsRouter);
 
-const PORT = 5005;
+const PORT = 3009;
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`ACCUSOFT DEMO is running ${PORT}`);
+  console.log(`BIZGIDE is running ${PORT}`);
 });

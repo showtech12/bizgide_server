@@ -12,7 +12,7 @@ router.post("/api/v1/auth/login", async (req, res) => {
   const loginDetails = req.body;
   const txtEmail1 = loginDetails.txtEmail;
   const txtPass1 = loginDetails.txtPass;
- // console.log(txtEmail1);
+  // console.log(txtEmail1);
 
   try {
     // Ensure the request body contains required fields

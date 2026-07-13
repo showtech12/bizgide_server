@@ -29,6 +29,9 @@ User.init(
     position: {
       type: DataTypes.STRING,
     },
+    role_id: {
+      type: DataTypes.STRING,
+    },
     IsActive: {
       type: DataTypes.STRING,
     },
