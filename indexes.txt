@@ -1,0 +1,64 @@
+-- products
+CREATE INDEX idx_products_name
+ON products(product_name);
+
+-- order_details
+CREATE INDEX idx_orderdetails_order_product
+ON order_details(orders_id, product_id);
+
+CREATE INDEX idx_orderdetails_product
+ON order_details(product_id);
+
+-- orders
+CREATE INDEX idx_orders_store_id
+ON orders(store, id);
+
+-- tblunit
+CREATE INDEX idx_tblunit_product
+ON tblunit(product_id);
+
+
+CREATE INDEX idx_orderdetails_product
+ON order_details (product_id);
+
+CREATE INDEX idx_orderdetails_order_product_time
+ON order_details (orders_id, product_id, time_id);
+
+CREATE INDEX idx_tbltimes_date
+ON tbltimes (dated);
+
+CREATE INDEX idx_orderdetails_date_order
+ON order_details(dated, orders_id);
+
+CREATE INDEX idx_orderdetails_product_date
+ON order_details(product_id, dated);
+
+CREATE INDEX idx_orders_store_person_user
+ON orders(store, persons_id, users_id);
+
+CREATE INDEX idx_transactions_store_type_ledger_date
+ON transactions (str_id, type, ledger_id, dated);
+
+CREATE INDEX idx_orders_store_mode_trans
+ON orders (store, order_mode, transact_id);
+
+CREATE INDEX idx_orderdetails_order_date_product
+ON order_details (orders_id, dated, product_id);
+
+CREATE INDEX idx_transactions_person_date
+ON transactions(personid, dated);
+
+CREATE INDEX idx_persons_contact_id
+ON persons(contact_type, id);
+
+CREATE INDEX idx_transactions_type_date_user
+ON transactions (type, dated, userid);
+
+CREATE INDEX idx_orderdetails_order_product_date
+ON order_details (orders_id, product_id, dated);
+
+CREATE INDEX idx_orders_store_dates
+ON orders (store, dates);
+
+CREATE INDEX idx_orderdetails_product_date_id
+ON order_details (product_id, dated, id);

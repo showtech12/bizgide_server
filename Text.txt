@@ -1,0 +1,14 @@
+Best Practices for Your Stack
+
+Since you've been working on inventory, POS, and accounting systems with Sequelize, a practical strategy is:
+
+Cache rarely changing data (settings, units, categories, users' roles) for 30–60 minutes.
+Cache dashboard summaries and reports for 1–5 minutes.
+Add indexes on all columns used in WHERE, JOIN, and ORDER BY.
+Use raw: true for read-only APIs.
+Use raw SQL (sequelize.query) for complex accounting and inventory reports.
+Enable Sequelize connection pooling.
+Use pagination for list endpoints.
+Profile slow queries with EXPLAIN and optimize them before adding more application logic.
+
+

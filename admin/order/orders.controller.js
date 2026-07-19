@@ -28,14 +28,14 @@ const getRecByID = async (col, colval, id) => {
   const UpdateOrder = async (id, body) => {
     // const d = Tools.getNowDate();
      console.log(body)
-     const order1 = await orders.findOne({ where: { id: id } });
+     //const order1 = await orders.findOne({ where: { id: id } });
  
-      order1.gurantor_surname1 = body.txtG1_surname;
-      order1.gurantor_othername1 = body.txtG1_othername;
-      order1.gurantor_surname2 = body.txtG2_surname;
-      order1.gurantor_othername2 = body.txtG2_othername;
+      // order1.gurantor_surname1 = body.txtG1_surname;
+      // order1.gurantor_othername1 = body.txtG1_othername;
+      // order1.gurantor_surname2 = body.txtG2_surname;
+      // order1.gurantor_othername2 = body.txtG2_othername;
   
-     await order1.save();
+     //await order1.save();
  
  }
 

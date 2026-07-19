@@ -55,7 +55,7 @@ router.post("/api/v1/auth/login", async (req, res) => {
                 ON u.role_id = r.id
             WHERE 
                 u.email = :email 
-                AND u.PassWord = :password 
+               
                 AND u.acct_type = 'STAFF';`,
       {
         replacements: { email: txtEmail1, password: txtPass1 },
@@ -75,6 +75,15 @@ router.post("/api/v1/auth/login", async (req, res) => {
       //         message: "Invalid Login Details"
       //     });
       // }
+
+      // Check if the password matches (assuming you hash passwords on registration)
+      //const passwordMatch = await bcryptjs.compare(txtPass, user.PassWord);
+      if (user.PassWord !== txtPass1) {
+          return res.status(401).json({
+              success: false,
+              message: "Invalid Login Details"
+          });
+      }
 
       const adminID = user.id;
       // console.log(agtID)

@@ -5,105 +5,139 @@ class Persons extends Model {}
 
 Persons.init(
   {
-    reg_date1: {
+    contact_type: {
       type: DataTypes.STRING,
     },
-    acct_type: {
+    ptype: {
       type: DataTypes.STRING,
     },
-    sur_name: {
+    la_id: {
+      type: DataTypes.INTEGER,
+    },
+    full_name: {
       type: DataTypes.STRING,
     },
-    middle_name: {
+    sex: {
       type: DataTypes.STRING,
     },
-    other_name: {
+    address: {
+      type: DataTypes.TEXT,
+    },
+    dob: {
       type: DataTypes.STRING,
     },
-    e_mail: {
-      type: DataTypes.STRING,
-    },
-    phone_num: {
-      type: DataTypes.STRING,
-    },
-    bvn_num: {
-      type: DataTypes.STRING,
-    },
-    pass_Word: {
-      type: DataTypes.STRING,
-    },
-    isVerified: {
-      type: DataTypes.STRING,
-    },
-    account_id: {
-      type: DataTypes.STRING,
-    },
-    date_of_birth: {
+    phone_no: {
       type: DataTypes.STRING,
     },
     city: {
       type: DataTypes.STRING,
     },
-    local_govt: {
+   
+    state: {
       type: DataTypes.STRING,
     },
-    home_address: {
+    email: {
+      type: DataTypes.STRING,
+    },
+    act_no: {
+      type: DataTypes.STRING,
+    },
+    passport: {
       type: DataTypes.TEXT,
     },
-    state_adrs: {
-      type: DataTypes.TEXT,
-    },
-    state_adrs: {
-      type: DataTypes.STRING,
-    },
-    gender: {
-      type: DataTypes.STRING,
-    },
-    last_time_login: {
-      type: DataTypes.STRING,
-    },
-    isActive1: {
-      type: DataTypes.STRING,
-    },
-    createdAt: {
-      type: DataTypes.STRING,
-    },
-    Token: {
-      type: DataTypes.TEXT,
-    },
-
-    position: {
-      type: DataTypes.STRING,
-    },
-
-    passport_path: {
-      type: DataTypes.STRING,
-    },
-
-    bank_acct_name: {
-      type: DataTypes.STRING,
-    },
-
-    bank_acct_no: {
-      type: DataTypes.STRING,
-    },
-    bank_name: {
-      type: DataTypes.STRING,
-    },
-    isprof: {
-      type: DataTypes.STRING,
-    },
-
-    isveribvn: {
+    isActive: {
       type: DataTypes.INTEGER,
     },
-    
-    
+    postal_code: {
+      type: DataTypes.STRING,
+    },
+    store_id: {
+      type: DataTypes.INTEGER,
+    },
+    reg_date: {
+      type: DataTypes.STRING,
+    },
+    last_date_modified: {
+      type: DataTypes.STRING,
+    },
+    flg: {
+      type: DataTypes.STRING,
+    },
   },
   {
     sequelize,
     modelName: "persons",
     timestamps: false,
+
+    indexes: [
+      // Customer/Supplier name search
+      {
+        name: "idx_persons_name",
+        fields: ["full_name"],
+      },
+
+      // Phone lookup
+      {
+        name: "idx_persons_phone",
+        fields: ["phone_no"],
+      },
+
+      // Email lookup
+      {
+        name: "idx_persons_email",
+        fields: ["email"],
+      },
+
+      
+
+      // Store filtering
+      {
+        name: "idx_persons_store",
+        fields: ["store_id"],
+      },
+
+      // Customer or Supplier
+      {
+        name: "idx_persons_contact_type",
+        fields: ["contact_type"],
+      },
+
+      // Customer type
+      {
+        name: "idx_persons_ptype",
+        fields: ["ptype"],
+      },
+
+      // Active customers
+      {
+        name: "idx_persons_active",
+        fields: ["isActive"],
+      },
+
+      // Store + Contact Type
+      {
+        name: "idx_persons_store_contact",
+        fields: ["store_id", "contact_type"],
+      },
+
+      // Store + Name
+      {
+        name: "idx_persons_store_name",
+        fields: ["store_id", "full_name"],
+      },
+
+      // Store + Phone
+      {
+        name: "idx_persons_store_phone",
+        fields: ["store_id", "phone_no"],
+      },
+
+      // Store + Active
+      {
+        name: "idx_persons_store_active",
+        fields: ["store_id", "isActive"],
+      },
+    ],
   }
 );
 module.exports = Persons;

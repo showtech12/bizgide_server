@@ -495,7 +495,7 @@ router.get(
               FROM products p
               JOIN tblunit u ON u.product_id = p.id
               JOIN tblusers uz ON uz.id = p.user_id 
-              GROUP BY p.id, p.product_name, p.selling_price ORDER BY p.id DESC ;`,
+              GROUP BY p.id ORDER BY p.id DESC ;`,
           { type: sequelize.QueryTypes.SELECT },
         )
 
@@ -534,7 +534,7 @@ router.get(
   async (req, res) => {
     const perct_value = Number(req.query.pv);
 
-    console.log(perct_value);
+   // console.log(perct_value);
 
     try {
       const rows = await sequelize.query(

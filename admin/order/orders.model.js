@@ -5,7 +5,7 @@ class Orders extends Model {}
 
 Orders.init(
   {
-    person_id: {
+    persons_id: {
       type: DataTypes.INTEGER,
     },
     invoice_no: {
@@ -14,120 +14,62 @@ Orders.init(
     order_mode: {
       type: DataTypes.STRING,
     },
-    order_date: {
+    dates: {
       type: DataTypes.STRING,
     },
-    user_id: {
+    store: {
+      type: DataTypes.STRING,
+    },
+    users_id: {
       type: DataTypes.INTEGER,
     },
     transact_id: {
       type: DataTypes.INTEGER,
     },
-    verified_by: {
-      type: DataTypes.INTEGER,
-    },
-    
-    bank_statement_path: {
-        type: DataTypes.STRING,
-      },
-    id_pathe: {
-      type: DataTypes.STRING,
-    },
-    gurantor_surname1: {
-      type: DataTypes.STRING,
-    },
-    gurantor_othername1: {
-      type: DataTypes.STRING,
-    },
-    gurantor_id_path1: {
-      type: DataTypes.STRING,
-    },
-    gurantor_surname2: {
-      type: DataTypes.STRING,
-    },
-    gurantor_othername2: {
-      type: DataTypes.STRING,
-    },
-    guarantor_id_path2: {
-      type: DataTypes.TEXT,
-    },
-   
-    company_cert_path: {
-      type: DataTypes.STRING,
-    },
-    company_memart_path: {
-      type: DataTypes.STRING,
-    },
-    doc_of_collatera_path: {
-      type: DataTypes.STRING,
-    },
-    lpo_doc_pathe: {
-      type: DataTypes.STRING,
-    },
-    loan_type: {
-        type: DataTypes.STRING,
-      },
-
-    loan_amt: {
-        type: DataTypes.DECIMAL(15,2),
-    },
-
-    loan_period: {
-        type: DataTypes.STRING,
-    },
-
-    loan_repay_source: {
-        type: DataTypes.STRING,
-    },
-
-    b_v_n: {
-        type: DataTypes.STRING,
-    },
-
-    interest_pect: {
-        type: DataTypes.DECIMAL(11,2),
-    },
-
-    interest_amt: {
-        type: DataTypes.DECIMAL(11,2),
-    },
-
-    end_date_loan: {
-        type: DataTypes.STRING,
-    },
-    isLetter: {
-      type: DataTypes.STRING,
-  },
-  isCol_Loan: {
-    type: DataTypes.INTEGER,
-  },
-  offer_l_upd: {
-    type: DataTypes.STRING,
-  },
-
-  total_interest_pect: {
-    type: DataTypes.DECIMAL(11,2),
-  },
-total_Loan_P_I: {
-  type: DataTypes.DECIMAL(11,2),
-},
-mnth_pay: {
-  type: DataTypes.DECIMAL(11,2),
-},
-principay_amt: {
-  type: DataTypes.DECIMAL(11,2),
-},
-isCancel: {
-  type: DataTypes.INTEGER,
-},
-
-
-    
   },
   {
     sequelize,
-    modelName: "loan_orders",
+    modelName: "orders",
     timestamps: false,
+
+    indexes: [
+      // Search by invoice number
+      {
+        unique: true,
+        name: "uk_orders_invoice_no",
+        fields: ["invoice_no"],
+      },
+
+      // Queries filtering by date and store
+      {
+        name: "idx_orders_store_date",
+        fields: ["store", "dates"],
+      },
+
+      // Queries filtering by customer/person
+      {
+        name: "idx_orders_persons_id",
+        fields: ["persons_id"],
+      },
+
+      // Queries filtering by user
+      {
+        name: "idx_orders_users_id",
+        fields: ["users_id"],
+      },
+
+      // Queries filtering by transaction
+      {
+        name: "idx_orders_transact_id",
+        fields: ["transact_id"],
+      },
+
+      // Composite index if you often search by person and date
+      {
+        name: "idx_orders_person_date",
+        fields: ["persons_id", "dates"],
+      },
+    ],
   }
 );
 module.exports = Orders;

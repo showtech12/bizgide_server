@@ -544,7 +544,20 @@ router.get(
     try {
       sequelize
         .query(
-          `SELECT p.id, t.dated, SUM(balance_amt) AS bal, SUM(credit_amt) AS crt, SUM(debit_amt) AS dbt, SUM(discount) AS dct, p.full_name, p.ptype FROM transactions t, persons p WHERE p.contact_type = 'CUSTOMER' AND  t.personid = p.id GROUP BY p.id`,
+          `SELECT
+              p.id,
+              t.dated,
+              SUM(t.balance_amt) AS bal,
+              SUM(t.credit_amt) AS crt,
+              SUM(t.debit_amt) AS dbt,
+              SUM(t.discount) AS dct,
+              p.full_name,
+              p.ptype
+          FROM persons p
+          INNER JOIN transactions t
+              ON t.personid = p.id
+          WHERE p.contact_type = 'CUSTOMER'
+          GROUP BY p.id;`,
           { type: sequelize.QueryTypes.SELECT },
         )
 
@@ -1508,7 +1521,7 @@ router.post(
         .query(qry, { type: sequelize.QueryTypes.SELECT })
 
         .then((results) => {
-          console.log("Query result:", results);
+         // console.log("Query result:", results);
           res.status(200).json({
             success: true,
             message: "success",
@@ -1895,6 +1908,274 @@ router.post(
   },
 );
 
+
+router.post(
+  "/api/v1/accountrept",
+  verifyAdmin,
+  authorizePermission("salesrecord"),
+  async (req, res) => {
+    //console.log(req.userDtl[0].id)
+    //console.log(req.body);
+
+    const schema = Joi.object({
+      store: Joi.number().integer().positive().required().messages({
+        "number.base": "Please Select Store must ",
+        "number.positive": "Invalid Please ",
+        "any.required": "Please Select Store is required",
+      }),
+
+      // product: Joi.number()
+      //   .integer()
+      //   .positive()
+      //   .required()
+      //   .messages({
+      //     "number.base": "Product ID must be a number",
+      //     "number.positive": "Invalid Product ID",
+      //     "any.required": "Please Select Product Name",
+      //   }),
+
+      // Ledger: Joi.number()
+      //   .integer()
+      //   .positive()
+      //   .required()
+      //   .messages({
+      //     "number.base": "Customer ID must be a number",
+      //     "number.positive": "Invalid Customer ID",
+      //     "any.required": "Please Select Customer Name",
+      //   }),
+
+      dateTo: Joi.string().trim().min(3).required().messages({
+        "any.only": "Please Select Date To",
+        "any.required": "Please Select Date To",
+      }),
+
+      dateFrom: Joi.string().trim().required().messages({
+        "any.only": "Please Select Date From",
+        "any.required": "Please Select Date From",
+      }),
+    });
+
+    // ===================== VALIDATE REQUEST =====================
+    const { error, value } = schema.validate(req.body, {
+      abortEarly: false,
+      convert: true,
+      stripUnknown: true,
+    });
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.details.map((d) => d.message),
+      });
+    }
+
+    // ===================== EXTRACT VALIDATED DATA =====================
+    const {
+      store,
+      //product,
+      //Ledger,
+      dateTo,
+      dateFrom,
+    } = value;
+
+    let qry = ``;
+    qry = `SELECT
+	
+                ROUND(SUM(r.opening_value),2)                     AS opening_stock,
+                ROUND(SUM(r.purchase_value),2)                    AS net_purchases,
+                ROUND(SUM(r.available_value),2)                   AS cost_of_goods_available,
+                ROUND(SUM(r.closing_value),2)                     AS closing_stock,
+                ROUND(SUM(r.available_value-r.closing_value),2)   AS cost_of_goods_sold,
+                ROUND(SUM(r.sales_value),2)                       AS sales,
+                
+                ROUND(SUM(r.sales_value-(r.available_value-r.closing_value)),2) AS gross_profit
+            FROM
+            (
+                SELECT
+
+                    p.id,
+                    p.product_code,
+                    p.product_name,
+                    p.cost_price,
+
+                    /* Opening Stock Qty */
+                    COALESCE(os.opening_stock,0) AS opening_stock,
+
+                    /* Period Transactions */
+                    COALESCE(tx.purchase_qty,0) AS purchases,
+                    COALESCE(tx.return_in,0) AS return_in,
+                    COALESCE(tx.return_out,0) AS return_out,
+                    COALESCE(tx.sales_qty,0) AS sales,
+
+                    /* Values */
+                    COALESCE(tx.purchase_value,0) AS purchase_value,
+                    COALESCE(tx.sales_value,0) AS sales_value,
+
+                    /* Opening Stock Value */
+                    COALESCE(os.opening_stock,0) * p.cost_price AS opening_value,
+
+                    /* Goods Available Qty */
+                    (
+                        COALESCE(os.opening_stock,0)
+                        + COALESCE(tx.purchase_qty,0)
+                        + COALESCE(tx.return_in,0)
+                        - COALESCE(tx.return_out,0)
+                    ) AS available_stock,
+
+                    /* Goods Available Value */
+                    (
+                        COALESCE(os.opening_stock,0)
+                        + COALESCE(tx.purchase_qty,0)
+                        + COALESCE(tx.return_in,0)
+                        - COALESCE(tx.return_out,0)
+                    ) * p.cost_price AS available_value,
+
+                    /* Closing Qty */
+                    (
+                        COALESCE(os.opening_stock,0)
+                        + COALESCE(tx.purchase_qty,0)
+                        + COALESCE(tx.return_in,0)
+                        - COALESCE(tx.return_out,0)
+                        - COALESCE(tx.sales_qty,0)
+                    ) AS closing_stock,
+
+                    /* Closing Value */
+                    (
+                        (
+                            COALESCE(os.opening_stock,0)
+                            + COALESCE(tx.purchase_qty,0)
+                            + COALESCE(tx.return_in,0)
+                            - COALESCE(tx.return_out,0)
+                            - COALESCE(tx.sales_qty,0)
+                        ) * p.cost_price
+                    ) AS closing_value
+
+                FROM products p
+
+                  /* Opening Stock */
+            LEFT JOIN
+            (
+                SELECT
+                    product_id,
+                    qty_bal AS opening_stock
+                FROM
+                (
+                    SELECT
+                        od.product_id,
+                        od.qty_bal,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY od.product_id
+                            ORDER BY od.dated DESC, od.id DESC
+                        ) AS rn
+                    FROM order_details od
+                    INNER JOIN orders o
+                        ON o.id = od.orders_id
+                    WHERE o.store = 1
+                      AND od.dated < '${dateTo}'
+                ) X
+                WHERE rn = 1
+            ) os
+                    ON os.product_id=p.id
+
+                /* Period Transactions */
+                LEFT JOIN
+                (
+                    SELECT
+
+                        d.product_id,
+
+                        SUM(
+                            CASE
+                                WHEN o.order_mode IN ('Bought','Stock_in')
+                                THEN ABS(d.stock_bal)
+                                ELSE 0
+                            END
+                        ) purchase_qty,
+
+                        SUM(
+                            CASE
+                                WHEN o.order_mode='Returnin'
+                                THEN ABS(d.stock_bal)
+                                ELSE 0
+                            END
+                        ) return_in,
+
+                        SUM(
+                            CASE
+                                WHEN o.order_mode='Returnout'
+                                THEN ABS(d.stock_bal)
+                                ELSE 0
+                            END
+                        ) return_out,
+
+                        SUM(
+                            CASE
+                                WHEN o.order_mode='Sold'
+                                THEN ABS(d.stock_bal)
+                                ELSE 0
+                            END
+                        ) sales_qty,
+
+                        SUM(
+                            CASE
+                                WHEN o.order_mode IN ('Bought','Stock_in')
+                                THEN d.total_costline
+                                ELSE 0
+                            END
+                        ) purchase_value,
+
+                        SUM(
+                            CASE
+                                WHEN o.order_mode='Sold'
+                                THEN d.total_line
+                                ELSE 0
+                            END
+                        ) sales_value
+
+                    FROM orders o
+                    INNER JOIN order_details d
+                        ON d.orders_id=o.id
+                    WHERE o.store=1 AND
+                    o.dates >= '${dateFrom}' AND o.dates < '${dateTo}'
+                    GROUP BY d.product_id
+
+                ) tx
+                    ON tx.product_id=p.id
+
+            ) r;`;
+
+    try {
+      sequelize
+        .query(qry, { type: sequelize.QueryTypes.SELECT })
+
+        .then((results) => {
+          //  console.log("Query result:", results);
+          res.status(200).json({
+            success: true,
+            message: "success",
+            total: results.length,
+            data: results,
+          });
+        })
+        .catch((error) => {
+          //console.error('Error fetching data:', error);
+          res.status(200).json({
+            success: false,
+            data: "",
+          });
+        });
+    } catch (error) {
+      console.log(error);
+      res.status(200).json({
+        success: false,
+        message: error,
+      });
+    }
+
+    //
+  },
+);
+
 router.post(
   "/api/v1/salesinc",
   verifyAdmin,
@@ -1985,7 +2266,7 @@ router.post(
         .query(qry, { type: sequelize.QueryTypes.SELECT })
 
         .then((results) => {
-          console.log("Query result:", results);
+         // console.log("Query result:", results);
           res.status(200).json({
             success: true,
             message: "success",
@@ -2085,12 +2366,14 @@ router.post(
     } = value;
 
     let qry = ``;
-    console.log(SaType);
+    //console.log(SaType);
     if (SaType == "SALES") {
       if (Ledger == "ALL") {
         qry = `SELECT o.persons_id, d.id,d.qty_type, d.orders_id, pr.product_name,pr.selling_price,pr.cost_price,pr.product_code,d.discount, d.dated, d.quantity, d.sales_price, d.total_line, d.order_mode,o.invoice_no,t.description,d.date_time, pr.piecies_value FROM order_details d, orders o, transactions t,products pr WHERE o.store ='${store}' AND d.product_id=pr.id AND d.orders_id = o.id AND o.transact_id = t.id AND o.order_mode IN ("Sold","Returnin") AND d.dated BETWEEN '${dateFrom}' AND '${dateTo}'; `;
       } else {
-        qry = `SELECT o.persons_id, d.id,d.qty_type, d.orders_id, pr.product_name,pr.selling_price,pr.cost_price,pr.product_code,d.discount, d.dated, d.quantity, d.sales_price, d.total_line,d.order_mode,o.invoice_no,t.description,d.date_time,pr.piecies_value FROM order_details d, orders o, transactions t,products pr  WHERE o.store ='${store}' AND d.product_id=pr.id AND d.orders_id = o.id  AND o.persons_id = '${Ledger}'  AND o.transact_id = t.id AND o.order_mode IN ("Sold","Returnin") AND d.dated BETWEEN '${dateFrom}' AND '${dateTo}'`;
+        qry = `
+          
+        SELECT o.persons_id, d.id,d.qty_type, d.orders_id, pr.product_name,pr.selling_price,pr.cost_price,pr.product_code,d.discount, d.dated, d.quantity, d.sales_price, d.total_line,d.order_mode,o.invoice_no,t.description,d.date_time,pr.piecies_value FROM order_details d, orders o, transactions t,products pr  WHERE o.store ='${store}' AND d.product_id=pr.id AND d.orders_id = o.id  AND o.persons_id = '${Ledger}'  AND o.transact_id = t.id AND o.order_mode IN ("Sold","Returnin") AND d.dated BETWEEN '${dateFrom}' AND '${dateTo}'`;
         //  // console.log(Ledger)
       }
     } else if (SaType == "PURCHASE") {
@@ -2102,11 +2385,15 @@ router.post(
       }
     }
 
-     console.log(qry);
+    // console.log(qry);
 
     try {
       sequelize
-        .query(qry, { type: sequelize.QueryTypes.SELECT })
+        .query(qry, { 
+          replacements:[1,dateFrom,dateTo],
+          type: sequelize.QueryTypes.SELECT,
+          
+         })
 
         .then((results) => {
           //console.log("Query result:", results);
@@ -2167,7 +2454,7 @@ router.post("/api/v1/delOrder", verifyAdmin, async (req, res) => {
       message: "Order deleted successfully.",
     });
   } catch (error) {
-    console.error("Delete Order Error:", error);
+   // console.error("Delete Order Error:", error);
 
     return res.status(500).json({
       success: false,
@@ -2309,7 +2596,7 @@ router.post(
                     GROUP BY userid;
                   `;
 
-                  console.log(qry);
+                 // console.log(qry);
     //  qry = `SELECT
     //           t.dated,
     //           t.description,
