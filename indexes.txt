@@ -62,3 +62,35 @@ ON orders (store, dates);
 
 CREATE INDEX idx_orderdetails_product_date_id
 ON order_details (product_id, dated, id);
+
+//=======================================================
+
+ALTER TABLE orders
+ADD UNIQUE (invoice_no);
+
+//======================================================
+
+router.post("/checkout", async (req, res) => {
+
+    const transaction = await sequelize.transaction();
+
+    try {
+
+        // All queries use { transaction }
+
+        await transaction.commit();
+
+        res.json({ success: true });
+
+    } catch (err) {
+
+        await transaction.rollback();
+
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+
+    }
+
+});

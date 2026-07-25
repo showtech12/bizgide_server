@@ -46,10 +46,10 @@ const getRecByID = async (col, colval, id) => {
     return OneUserDtls;
   };
 
-  const UpdatePerson = async (id, body) => {
+  const UpdatePerson = async (id, body, transaction) => {
    // const d = Tools.getNowDate();
     console.log(body)
-    const person1 = await persons.findOne({ where: { id: id } });
+    const person1 = await persons.findOne({ where: { id: id }, transaction });
 
      person1.bank_acct_name = body.txtAcctName;
      person1.bank_acct_no = body.txtAcctNo;

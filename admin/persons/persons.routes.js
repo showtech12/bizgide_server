@@ -50,7 +50,7 @@ router.post("/api/v1/updtpass", verifyAdmin, async (req, res, next) => {
   //const txtEmail = req.body.email;
   // const ResetCode = req.body.resetcode;
   // const newpass = req.body.newpass;
-
+const transaction = await sequelize.transaction();
   const { txtPassW, txtNewPassW, txtCNewPassW } = req.body;
   const BodyDetails = { txtPassW, txtNewPassW, txtCNewPassW };
 
@@ -96,16 +96,18 @@ router.post("/api/v1/updtpass", verifyAdmin, async (req, res, next) => {
   sequelize
     .query(`UPDATE persons SET pass_Word = :pass_Word WHERE id= :id`, {
       replacements: { pass_Word: req.body.txtNewPassW, id: Pid },
-      type: sequelize.QueryTypes.UPDATE,
+      type: sequelize.QueryTypes.UPDATE,transaction
     })
 
     .then((results) => {
+      transaction.commit()
       res.json({
         success: true,
         message: "Successsful",
       });
     })
     .catch((error) => {
+      transaction.rollback()
       //console.error('Error fetching data:', error);
       res.status(200).json({
         success: false,
@@ -269,39 +271,7 @@ router.post("/api/v1/changepasscrt", async (req, res, next) => {
   });
 });
 
-router.post("/api/v1/reset_credit", async (req, res, next) => {
-  // Update
 
-  const txtEmail = req.body.email;
-  console.log(req.body);
-  const ResetCode = Tools.getUniqueId();
-
-  await cPersons.getResetPass(txtEmail, ResetCode);
-
-  let bdymsg = "";
-  let MyMail = "tristian.hickle9@ethereal.email";
-  //let MyMail=req.body.txtEmail;
-  // // bdymsg +='<a href="localhost:5000/verify/'+user_ID+'" > Verify </a>';
-
-  bdymsg +=
-    "<style> #link1 {background-color: #04AA6D;border: none;color: white;padding: 16px 32px;text-decoration: none;margin: 4px 2px;cursor: pointer;}</style>";
-
-  bdymsg +=
-    '<h2 style="text-align:center;font-weight:bold">Reset Password </h2>';
-  bdymsg +=
-    '<p style="text-align:center;font-weight:bold">Click to Change your password</p>';
-  bdymsg +=
-    '<a href="https://app.greenheycredit.com/changepass.php?id=' +
-    ResetCode +
-    '"  id="link1" style="text-align:center" class=""> Change Password </a>';
-
-  SndMail.getSendMail(bdymsg, MyMail, "Password Reset", "");
-
-  res.status(200).json({
-    success: true,
-    message: "Password Reset, Please check your mail to proceed",
-  });
-});
 
 router.post("/api/v1/profilepix", uploadMiddleware, (req, res) => {
   // console.log(req.files)
@@ -386,7 +356,8 @@ router.get("/api/v1/person", verifyAdmin, async (req, res, next) => {
 
 router.post("/api/v1/personupdt", verifyAdmin, async (req, res) => {
   const pid = req.body.PID;
-  console.log(pid);
+  //console.log(pid);
+  const transaction = await sequelize.transaction();
 
   const { txtDob, cboGender1, txtAcctName, txtAcctNo, cboBankName, txtAdress } =
     req.body;
@@ -456,20 +427,24 @@ router.post("/api/v1/personupdt", verifyAdmin, async (req, res) => {
       .json({ success: false, message: error.details[0].message });
   }
 
-  const newP = await cPersons.UpdatePerson(pid, req.body);
-
+  const newP = await cPersons.UpdatePerson(pid, req.body, transaction);
+transaction.commit()
   res.status(200).json({
     success: true,
     message: "Record Updated",
     data: newP,
+  }).catch((error)=>{
+    transaction.rollback();
+    console.log(error);
   });
 });
 
 //router.post("/api/v1/person",verifyPerson, authorizePermission('ADMIN'),
 router.post("/api/v1/person", async (req, res, next) => {
+  const transaction = await sequelize.transaction();
   //const { error, value } = schema.validate(req.body, { abortEarly: false });
   const { error, value } = PersonSchema.validate(req.body);
-  console.log(req.body);
+  //console.log(req.body);
 
   if (error) {
     console.log(error);
@@ -518,7 +493,7 @@ router.post("/api/v1/person", async (req, res, next) => {
 
     myData = {
       reg_date1: d,
-      acct_type: "CREDITORS",
+      acct_type: "BIZGIDE",
       sur_name: req.body.txtSurname.toUpperCase(),
       middle_name: "",
       other_name: req.body.txtOthername.toUpperCase(),
@@ -528,7 +503,7 @@ router.post("/api/v1/person", async (req, res, next) => {
       pass_Word: hashPass,
       isVerified: "NO",
       account_id: "",
-      position: "CREDITOR",
+      position: "BIZGIDE",
       // pass_Word: req.body.txtUsername.toUpperCase(),
       date_of_birth: "",
       city: "",
@@ -638,7 +613,7 @@ router.get(
   "/api/v1/customers",
   verifyAdmin,
   pagination,
-  authorizePermission("ADMIN", "CREDITOR", "USER"),
+  authorizePermission("ADMIN", "USER"),
   async (req, res) => {
     const pages = await cPersons.getAllCustomers(req.mypages);
     res.status(200).json({

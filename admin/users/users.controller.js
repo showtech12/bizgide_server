@@ -3,8 +3,8 @@ const NotFoundException = require("../../Exceptions/Exception");
 const Tools = require("../../shared/commonTools");
 const bcryptjs = require("bcryptjs");
 
-const create = async (body) => {
-  await user.create(body);
+const create = async (body,transaction) => {
+  await user.create(body, transaction);
 };
 
 const MaxID = async (id) => {
@@ -117,10 +117,10 @@ const getUser = async (id) => {
   return OneUserDtls;
 };
 
-const UpdateUser = async (id, body) => {
+const UpdateUser = async (id, body, transaction) => {
   const d = Tools.getNowDate();
    //console.log(body)
-  const user1 = await user.findOne({ where: { id: id } });
+  const user1 = await user.findOne({ where: { id: id },transaction });
 
   //   {
 //   id: 33,
@@ -153,9 +153,9 @@ const UpdateUser = async (id, body) => {
    await user1.save();
 };
 
-const deleteUser = async (id) => {
+const deleteUser = async (id, transaction) => {
   //  console.log(id);
-  await user.destroy({ where: { id: id } });
+  await user.destroy({ where: { id: id },transaction });
   //return{}
 };
 

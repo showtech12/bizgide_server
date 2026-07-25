@@ -20,6 +20,7 @@ const authorizePermission = require("../auth_role.js");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const sequelize = require("../../config/database.js");
 
 const allowedFileTypes = /jpeg|jpg|png|gif/;
 
@@ -64,12 +65,10 @@ router.post("/upload", (req, res) => {
       await fs.promises.writeFile(filePath, req.file.buffer);
       res.status(200).send({ message: "File uploaded successfully" });
     } catch (writeError) {
-      res
-        .status(500)
-        .send({
-          message: "Error writing file to disk",
-          error: writeError.message,
-        });
+      res.status(500).send({
+        message: "Error writing file to disk",
+        error: writeError.message,
+      });
     }
 
     // const d = new date();
@@ -158,10 +157,11 @@ router.post(
   verifyAdmin,
   authorizePermission("users"),
   async (req, res) => {
+    const transaction = await sequelize.transaction();
     try {
       //console.log("Create user request:", req.body);
 
-     // return
+      // return
 
       const { error, value } = UserSchema.validate(req.body); // Validation
 
@@ -229,7 +229,7 @@ router.post(
       };
 
       // Create user
-      await cUser.create(myData);
+      await cUser.create(myData, transaction);
       const user_ID = await cUser.MaxID("id");
 
       // Generate account number
@@ -237,6 +237,7 @@ router.post(
       await cUser.getRecByID("id", acct_no, user_ID); // Not sure what this does in your code
 
       const userDetails = await cUser.getUser(user_ID);
+      await transaction.commit();
 
       return res.status(201).json({
         success: true,
@@ -252,6 +253,7 @@ router.post(
         },
       });
     } catch (err) {
+      await transaction.rollback();
       console.error(err);
       return res.status(500).json({ success: false, message: "Server error" });
     }
@@ -271,6 +273,7 @@ router.post(
   verifyAdmin,
   authorizePermission("users"),
   async (req, res) => {
+    const transaction = await sequelize.transaction();
     //const authUser = req.authedUser;
     //const id = req.params.id;
 
@@ -290,12 +293,15 @@ router.post(
       //if(!Number.isNaN(id)){}
       const id = Number.parseInt(req.body.id);
 
-      await cUser.UpdateUser(id, req.body);
+      await cUser.UpdateUser(id, req.body, transaction);
+      await transaction.commit();
       res.status(200).json({
         success: true,
         message: "Record Updated",
       });
-    } catch (error) {}
+    } catch (error) {
+      await transaction.rollback();
+    }
   },
 );
 
@@ -305,13 +311,32 @@ router.post(
   authorizePermission("users"),
   idNumControlPOST,
   async (req, res, next) => {
-    //console.log(req.body.id);
-    await cUser.deleteUser(req.body.id);
+    const transaction = await sequelize.transaction();
 
-    res.status(200).json({
-      success: true,
-      message: "Record Deleted Succesfully",
-    });
+    try {
+      await cUser.deleteUser(req.body.id, transaction);
+
+      await transaction.commit();
+
+      return res.json({
+        success: true,
+      });
+    } catch (err) {
+      await transaction.rollback();
+
+      return res.status(500).json({
+        success: false,
+        error: err.message,
+      });
+    }
+    //console.log(req.body.id);
+    // const transaction = await sequelize.transaction();
+    // await cUser.deleteUser(req.body.id, transaction);
+    // transaction.commit();
+    // res.status(200).json({
+    //   success: true,
+    //   message: "Record Deleted Succesfully",
+    // });
 
     // res.send("User Deleted");
   },

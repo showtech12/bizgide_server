@@ -20,14 +20,17 @@ const { customerSchema } = require("../../validate/validatePersonInput");
 const authorizePermission = require("../auth_role.js");
 const sequelize = require("../../config/database");
 const uploadMiddleware = require("../middlewares/uploadMiddleware");
+const { fn } = require("sequelize");
 //const { addMonths } = require("date-fns");
 
 // const multer = require("multer");
 // const path = require('path');
 // const fs = require("fs");
+//const transaction = await sequelize.transaction();
 
 router.get("/api/v1/posproduct", verifyAdmin, async (req, res) => {
   //console.log(req.userDtl[0].id)
+  const transaction = await sequelize.transaction();
 
   //  SELECT
   //             p.id AS id,
@@ -108,11 +111,13 @@ router.get("/api/v1/posproduct", verifyAdmin, async (req, res) => {
             ON u.product_id = p.id
 
             ORDER BY p.product_name;
+           
           `;
 
   try {
     const results = await sequelize.query(qry, {
       type: sequelize.QueryTypes.SELECT,
+      transaction,
     });
 
     return res.status(200).json({
@@ -892,7 +897,7 @@ ORDER BY p.product_name;`;
 
 router.post("/api/v1/customer", verifyAdmin, async (req, res) => {
   // console.log(req.body);
-
+  const transaction = await sequelize.transaction();
   const { fullname, email, phone, gender, address, city, contactType } =
     req.body;
 
@@ -943,6 +948,7 @@ router.post("/api/v1/customer", verifyAdmin, async (req, res) => {
         email,
       ],
       type: sequelize.QueryTypes.INSERT,
+      transaction,
     });
 
     const acctId = 10000 + Number(result);
@@ -950,14 +956,17 @@ router.post("/api/v1/customer", verifyAdmin, async (req, res) => {
     await sequelize.query(`UPDATE persons SET act_no=? WHERE id=?`, {
       replacements: [acctId, result],
       type: sequelize.QueryTypes.UPDATE,
+      transaction,
     });
 
+    transaction.commit()
     return res.status(200).json({
       success: true,
       message: "Customer created successfully",
       insertId: result,
     });
   } catch (error) {
+     await transaction.rollback();
     console.error("Insert Error:", error);
     return res.status(500).json({
       success: false,
@@ -972,6 +981,7 @@ router.post(
   verifyAdmin,
   authorizePermission("journals"),
   async (req, res) => {
+     const transaction = await sequelize.transaction();
     const { txtLedgerName, JournalID, ledgerLabel } = req.body;
     const d = new Date().toISOString().split("T")[0];
     const schema = Joi.object({
@@ -1010,14 +1020,16 @@ router.post(
       const [result] = await sequelize.query(qry, {
         replacements: [txtLedgerName, ledgerLabel, d, JournalID],
         type: sequelize.QueryTypes.INSERT,
+        transaction
       });
-
+await transaction.commit();
       return res.status(200).json({
         success: true,
         message: "Saved",
         insertId: result,
       });
     } catch (error) {
+      await transaction.rollback();
       console.error("Insert Error:", error);
       return res.status(500).json({
         success: false,
@@ -1029,6 +1041,7 @@ router.post(
 );
 
 router.post("/api/v1/customerupdate", verifyAdmin, async (req, res) => {
+   const transaction = await sequelize.transaction();
   const { id, fullname, email, phone, gender, address, city } = req.body;
 
   // Validate fullname & phone only
@@ -1077,14 +1090,16 @@ router.post("/api/v1/customerupdate", verifyAdmin, async (req, res) => {
     const [result] = await sequelize.query(qry, {
       replacements: [fullname, gender, address, phone, city, email, id],
       type: sequelize.QueryTypes.UPDATE,
+      transaction
     });
-
+await transaction.commit();
     return res.status(200).json({
       success: true,
       message: "Customer updated successfully",
       updatedId: id,
     });
   } catch (error) {
+    await transaction.rollback();
     console.error("Update Error:", error);
     return res.status(500).json({
       success: false,
@@ -1095,15 +1110,20 @@ router.post("/api/v1/customerupdate", verifyAdmin, async (req, res) => {
 });
 
 router.post("/api/v1/hidecus", verifyAdmin, async (req, res, next) => {
+  const transaction = await sequelize.transaction();
   await sequelize
     .query(`UPDATE persons SET flg='HIDE' WHERE id ='${req.body.id}'`, {
       type: sequelize.QueryTypes.UPDATE,
+      transaction
     })
     .then(() => {
+       transaction.commit();
       res.status(200).json({
         success: true,
         message: "Deactivated Successful",
       });
+    }).catch(()=>{
+       transaction.rollback();
     });
 });
 
@@ -1113,7 +1133,7 @@ router.post(
   authorizePermission("stockin"),
   async (req, res, next) => {
     // console.log(req.body);
-
+const transaction = await sequelize.transaction();
     const {
       stocktype,
       addbal,
@@ -1226,7 +1246,7 @@ router.post(
       // STEP 1: Get the STOCKIN person ID
       const [personResult] = await sequelize.query(
         `SELECT id FROM persons WHERE store_id = ? AND contact_type = 'STOCKIN' LIMIT 1`,
-        { replacements: [str_id], type: sequelize.QueryTypes.SELECT },
+        { replacements: [str_id], type: sequelize.QueryTypes.SELECT,transaction },
       );
 
       const persons_id = personResult?.id;
@@ -1243,11 +1263,11 @@ router.post(
        VALUES (?, '0', ?, ?, ?, ?, '0')`,
         {
           replacements: [persons_id, or_mode, d, str_id, usr_id],
-          type: sequelize.QueryTypes.INSERT,
+          type: sequelize.QueryTypes.INSERT,transaction
         },
       );
 
-      console.log(insertResult);
+      //console.log(insertResult);
       //return false;
       const orMax = insertResult; // Inserted order ID
 
@@ -1256,7 +1276,7 @@ router.post(
 
       await sequelize.query(`UPDATE orders SET invoice_no = ? WHERE id = ?`, {
         replacements: [inv_no, orMax],
-        type: sequelize.QueryTypes.UPDATE,
+        type: sequelize.QueryTypes.UPDATE,transaction
       });
 
       //STEP 4
@@ -1342,7 +1362,7 @@ router.post(
             costp, // stock_bal_value
             selectedUnit, // stock_bal_value
           ],
-          type: sequelize.QueryTypes.INSERT,
+          type: sequelize.QueryTypes.INSERT,transaction
         },
       );
 
@@ -1353,10 +1373,10 @@ router.post(
         `UPDATE order_details SET qty_bal=?  WHERE id = ?`,
         {
           replacements: [qty_bal, insertDetail],
-          type: sequelize.QueryTypes.UPDATE,
+          type: sequelize.QueryTypes.UPDATE,transaction
         },
       );
-
+await transaction.commit();
       return res.status(200).json({
         success: true,
         message: "Stock Added Successfull",
@@ -1364,6 +1384,7 @@ router.post(
         // invoice_no: inv_no
       });
     } catch (error) {
+      await transaction.rollback();
       console.error(error);
       return res.status(500).json({
         success: false,
@@ -1373,12 +1394,13 @@ router.post(
     }
   },
 );
-
+//===
 router.post(
   "/api/v1/singleinv",
   verifyAdmin,
   authorizePermission("inventory"),
   async (req, res) => {
+    const transaction = await sequelize.transaction();
     const schema = Joi.object({
       store: Joi.number().integer().positive().required().messages({
         "number.base": "Please Select Store must ",
@@ -1518,10 +1540,11 @@ router.post(
     console.log(qry);
     try {
       sequelize
-        .query(qry, { type: sequelize.QueryTypes.SELECT })
+        .query(qry, { type: sequelize.QueryTypes.SELECT,transaction })
 
         .then((results) => {
-         // console.log("Query result:", results);
+          transaction.commit();
+          // console.log("Query result:", results);
           res.status(200).json({
             success: true,
             message: "success",
@@ -1530,6 +1553,7 @@ router.post(
           });
         })
         .catch((error) => {
+           transaction.rollback();
           //console.error('Error fetching data:', error);
           res.status(200).json({
             success: false,
@@ -1908,7 +1932,6 @@ router.post(
   },
 );
 
-
 router.post(
   "/api/v1/accountrept",
   verifyAdmin,
@@ -2266,7 +2289,7 @@ router.post(
         .query(qry, { type: sequelize.QueryTypes.SELECT })
 
         .then((results) => {
-         // console.log("Query result:", results);
+          // console.log("Query result:", results);
           res.status(200).json({
             success: true,
             message: "success",
@@ -2389,11 +2412,10 @@ router.post(
 
     try {
       sequelize
-        .query(qry, { 
-          replacements:[1,dateFrom,dateTo],
+        .query(qry, {
+          replacements: [1, dateFrom, dateTo],
           type: sequelize.QueryTypes.SELECT,
-          
-         })
+        })
 
         .then((results) => {
           //console.log("Query result:", results);
@@ -2424,6 +2446,7 @@ router.post(
 );
 
 router.post("/api/v1/delOrder", verifyAdmin, async (req, res) => {
+  const transaction = await sequelize.transaction();
   try {
     const { id } = req.body;
 
@@ -2446,16 +2469,16 @@ router.post("/api/v1/delOrder", verifyAdmin, async (req, res) => {
 
     await sequelize.query(qry, {
       replacements: { id },
-      type: sequelize.QueryTypes.DELETE,
+      type: sequelize.QueryTypes.DELETE, transaction
     });
-
+   await transaction.commit()
     return res.status(200).json({
       success: true,
       message: "Order deleted successfully.",
     });
   } catch (error) {
-   // console.error("Delete Order Error:", error);
-
+    // console.error("Delete Order Error:", error);
+    await transaction.rollback()
     return res.status(500).json({
       success: false,
       message: "Failed to delete order.",
@@ -2538,7 +2561,7 @@ router.post(
     } = value;
 
     let qry = ``;
-             qry = `SELECT 
+    qry = `SELECT 
                         t.userid,
                         u.surname,
                         u.othername,
@@ -2596,7 +2619,7 @@ router.post(
                     GROUP BY userid;
                   `;
 
-                 // console.log(qry);
+    // console.log(qry);
     //  qry = `SELECT
     //           t.dated,
     //           t.description,
@@ -2649,6 +2672,8 @@ router.post(
   verifyAdmin,
   authorizePermission("post"),
   async (req, res) => {
+
+   const transaction = await sequelize.transaction();
     try {
       // ===================== VALIDATION SCHEMA =====================
       const schema = Joi.object({
@@ -2801,12 +2826,14 @@ router.post(
         );
       }
 
+      await transaction.commit()
       // ===================== SUCCESS RESPONSE =====================
       return res.status(200).json({
         success: true,
         message: "Checkout completed successfully",
       });
     } catch (err) {
+      await transaction.rollback()
       console.error(err);
       return res.status(500).json({
         success: false,
@@ -2821,6 +2848,7 @@ router.post(
   verifyAdmin,
   authorizePermission("expenses"),
   async (req, res) => {
+    const transaction = await sequelize.transaction();
     try {
       // ===================== VALIDATION SCHEMA =====================
       const schema = Joi.object({
@@ -2983,12 +3011,14 @@ router.post(
         );
       }
 
+      transaction.commit()
       // ===================== SUCCESS RESPONSE =====================
       return res.status(200).json({
         success: true,
         message: "Successful",
       });
     } catch (err) {
+      transaction.rollback()
       console.error(err);
       return res.status(500).json({
         success: false,
@@ -3003,6 +3033,7 @@ router.post(
   verifyAdmin,
   authorizePermission("capital"),
   async (req, res) => {
+    const transaction = await sequelize.transaction();
     try {
       // ===================== VALIDATION SCHEMA =====================
       const schema = Joi.object({
@@ -3164,12 +3195,14 @@ router.post(
       //   );
       // }
 
+     await transaction.commit()
       // ===================== SUCCESS RESPONSE =====================
       return res.status(200).json({
         success: true,
         message: "Successful",
       });
     } catch (err) {
+    await  transaction.rollback()
       console.error(err);
       return res.status(500).json({
         success: false,
@@ -3184,6 +3217,7 @@ router.post(
   verifyAdmin,
   authorizePermission("cashbook"),
   async (req, res) => {
+    const transaction = await sequelize.transaction();
     try {
       // ===================== VALIDATION SCHEMA =====================
       const schema = Joi.object({
@@ -3341,12 +3375,14 @@ router.post(
         );
       }
 
+    await  transaction.commit()
       // ===================== SUCCESS RESPONSE =====================
       return res.status(200).json({
         success: true,
         message: "Successful",
       });
     } catch (err) {
+    await  transaction.rollback()
       console.error(err);
       return res.status(500).json({
         success: false,
@@ -3361,6 +3397,7 @@ router.post(
   verifyAdmin,
   authorizePermission("otherincome"),
   async (req, res) => {
+    const transaction = await sequelize.transaction();
     try {
       // ===================== VALIDATION SCHEMA =====================
       const schema = Joi.object({
@@ -3524,12 +3561,14 @@ router.post(
       //   );
       // }
 
+    await  transaction.commit()
       // ===================== SUCCESS RESPONSE =====================
       return res.status(200).json({
         success: true,
         message: "Successful",
       });
     } catch (err) {
+     await transaction.rollback()
       console.error(err);
       return res.status(500).json({
         success: false,
@@ -3544,6 +3583,7 @@ router.post(
   verifyAdmin,
   authorizePermission("prev"),
   async (req, res) => {
+    const transaction = await sequelize.transaction();
     try {
       // ===================== VALIDATION SCHEMA =====================
       const schema = Joi.object({
@@ -3668,13 +3708,14 @@ router.post(
           0,
         );
       }
-
+await transaction.commit()
       // ===================== SUCCESS RESPONSE =====================
       return res.status(200).json({
         success: true,
         message: "Successful",
       });
     } catch (err) {
+      await transaction.rollback()
       console.error(err);
       return res.status(500).json({
         success: false,
@@ -3686,7 +3727,7 @@ router.post(
 
 router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
   // console.log(req.body);
-
+const transaction = await sequelize.transaction();
   const {
     payVia,
     AmtPaid,
@@ -3777,244 +3818,270 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
   const usr_id = req.userDtl[0].id;
   let resData = null;
 
-  try {
-    // STEP 2: Insert into orders table
-    const [insertResult] = await sequelize.query(
-      `INSERT INTO orders (persons_id, invoice_no, order_mode, dates, store, users_id, transact_id)
+  // const transaction = await sequelize.transaction({
+  //   isolationLevel: sequelize.Transaction.ISOLATION_LEVELS.READ_COMMITTED,
+  // });
+
+  //const transaction = await sequelize.transaction();
+
+  await getTransact.checkoutWithRetry(async () => {
+    try {
+      // STEP 2: Insert into orders table
+      const [insertResult] = await sequelize.query(
+        `INSERT INTO orders (persons_id, invoice_no, order_mode, dates, store, users_id, transact_id)
               VALUES (?, '0', ?, ?, ?, ?, '0')`,
-      {
-        replacements: [customer.id, orderMode, d, str_id, usr_id],
-        type: sequelize.QueryTypes.INSERT,
-      },
-    );
-
-    const orMax = insertResult; // Inserted order ID
-    //console.log(orMax);
-
-    // STEP 3: Update invoice number
-    const inv_no = 12000 + Number(orMax);
-
-    await sequelize.query(`UPDATE orders SET invoice_no = ? WHERE id = ?`, {
-      replacements: [inv_no, orMax],
-      type: sequelize.QueryTypes.UPDATE,
-    });
-
-    if (CartType === "CUSTOMER") {
-      //     $typez ="RECEIPT";
-      //==================== First Leg =====================
-      let desc = `Sold to ${customer.full_name} On Credit `;
-      let ca_id = 0;
-
-      //const  penalty = addbal * cost;
-      const dateId = await getDateid.getDateID();
-
-      const TxID = await getTransact.ProcessCheckout(
-        desc,
-        customer.id,
-        "PA",
-        0,
-        TAmtPayable,
-        0,
-        usr_id,
-        2,
-        dateId,
-        orMax,
-        TDsc,
-        0,
+        {
+          replacements: [customer.id, orderMode, d, str_id, usr_id],
+          type: sequelize.QueryTypes.INSERT,
+          transaction,
+        },
       );
 
-      await sequelize.query(`UPDATE orders SET transact_id = ? WHERE id = ?`, {
-        replacements: [TxID, orMax],
+      const orMax = insertResult; // Inserted order ID
+      //console.log(orMax);
+
+      // STEP 3: Update invoice number
+      const inv_no = 12000 + Number(orMax);
+
+      await sequelize.query(`UPDATE orders SET invoice_no = ? WHERE id = ?`, {
+        replacements: [inv_no, orMax],
         type: sequelize.QueryTypes.UPDATE,
+        transaction,
       });
 
-      desc = `Sales Ledger Debited For ${customer.full_name}`;
+      if (CartType === "CUSTOMER") {
+        //     $typez ="RECEIPT";
+        //==================== First Leg =====================
+        let desc = `Sold to ${customer.full_name} On Credit `;
+        let ca_id = 0;
 
-      await getTransact.ProcessCheckout(
-        desc,
-        2,
-        "CA",
-        TAmtPayable,
-        0,
-        0,
-        usr_id,
-        2,
-        dateId,
-        orMax,
-        TDsc,
-        0,
-      );
+        //const  penalty = addbal * cost;
+        const dateId = await getDateid.getDateID();
 
-      //===========================PAYMENT POST ================================
-
-      for (let item of AllPays) {
-        //console.log(item.AmtPaid);
-        //AmtPaid = Number(item.AmtPaid);
-
-        const cashid = await getTransact.get1Col(
-          "la_id",
-          "persons",
-          item.payVia,
-        );
-        let desc = `Cash Paid By ${customer.full_name} Via ${item.payViaText}`;
-        let TDsc = 0;
-
-        await getTransact.ProcessCheckout(
-          desc,
-          item.payVia,
-          "CA",
-          0,
-          Number(item.AmtPaid),
-          cashid,
-          usr_id,
-          cashid,
-          dateId,
-          orMax,
-          TDsc,
-          0,
-        );
-
-        await getTransact.ProcessCheckout(
+        const TxID = await getTransact.ProcessCheckout(
           desc,
           customer.id,
           "PA",
-          Number(item.AmtPaid),
           0,
+          TAmtPayable,
           0,
           usr_id,
-          cashid,
+          2,
           dateId,
           orMax,
           TDsc,
           0,
         );
-      }
-
-      for (let item of cart) {
-        // let QtyType = item.prdtType;
-        let QtyType = item.prdtType; // e.g. "BOX"
-
-        const selectedUnit = item.units.find(
-          (u) => u.unit_measure === QtyType.toUpperCase(),
-        );
-
-        if (!selectedUnit) {
-          // console.log("Unit not found for", item.product_name);
-          continue;
-        }
-
-        let BaseQty = Number(item.qty * item.unitsInSelected);
-        let Qty = Number(item.qty);
-        const costPrice = Number(selectedUnit.costprice);
-        const unit_price = Number(selectedUnit.unitprice);
-        const sellPrice = Number(item.price);
-        const discount = Number(item.discount) || 0;
-        //const piecesValue = Number(item.piecies_value);
-        let sellp = 0;
-        sellp = Qty * sellPrice - discount;
-
-        // Normalize quantity for PIECES
-        // if (item.prdtType === "pieces" && piecesValue > 0) {
-        //   Qty = Qty / piecesValue;
-        //   QtyType = "PIECES";
-        //   sellp = Qty * sellPrice * piecesValue - discount;
-        // }
-
-        // Calculations (always use normalized Qty)
-        const costp = Qty * costPrice;
-
-        const gain = sellp - costp;
-
-        const orderMode = "Sold";
-        const stk_bal = -BaseQty;
-        const qtyBal = Number(item.qbal) - BaseQty;
-        const stkBalVal = -sellp;
-
-        //console.log({ Qty, sellp, costp, gain });
 
         await sequelize.query(
-          `INSERT INTO order_details (
+          `UPDATE orders SET transact_id = ? WHERE id = ?`,
+          {
+            replacements: [TxID, orMax],
+            type: sequelize.QueryTypes.UPDATE,
+            transaction,
+          },
+        );
+
+        desc = `Sales Ledger Debited For ${customer.full_name}`;
+
+        await getTransact.ProcessCheckout(
+          desc,
+          2,
+          "CA",
+          TAmtPayable,
+          0,
+          0,
+          usr_id,
+          2,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+        );
+
+        //===========================PAYMENT POST ================================
+
+        for (let item of AllPays) {
+          //console.log(item.AmtPaid);
+          //AmtPaid = Number(item.AmtPaid);
+
+          const cashid = await getTransact.get1Col(
+            "la_id",
+            "persons",
+            item.payVia,
+          );
+          let desc = `Cash Paid By ${customer.full_name} Via ${item.payViaText}`;
+          let TDsc = 0;
+
+          await getTransact.ProcessCheckout(
+            desc,
+            item.payVia,
+            "CA",
+            0,
+            Number(item.AmtPaid),
+            cashid,
+            usr_id,
+            cashid,
+            dateId,
+            orMax,
+            TDsc,
+            0,
+          );
+
+          await getTransact.ProcessCheckout(
+            desc,
+            customer.id,
+            "PA",
+            Number(item.AmtPaid),
+            0,
+            0,
+            usr_id,
+            cashid,
+            dateId,
+            orMax,
+            TDsc,
+            0,
+          );
+        }
+
+        const sortedCart = [...cart].sort((a, b) => a.id - b.id);
+        for (let item of sortedCart) {
+          // let QtyType = item.prdtType;
+          let QtyType = item.prdtType; // e.g. "BOX"
+
+          const selectedUnit = item.units.find(
+            (u) => u.unit_measure === QtyType.toUpperCase(),
+          );
+
+          if (!selectedUnit) {
+            // console.log("Unit not found for", item.product_name);
+            continue;
+          }
+
+          let BaseQty = Number(item.qty * item.unitsInSelected);
+          let Qty = Number(item.qty);
+          const costPrice = Number(selectedUnit.costprice);
+          const unit_price = Number(selectedUnit.unitprice);
+          const sellPrice = Number(item.price);
+          const discount = Number(item.discount) || 0;
+          //const piecesValue = Number(item.piecies_value);
+          let sellp = 0;
+          sellp = Qty * sellPrice - discount;
+
+          // Normalize quantity for PIECES
+          // if (item.prdtType === "pieces" && piecesValue > 0) {
+          //   Qty = Qty / piecesValue;
+          //   QtyType = "PIECES";
+          //   sellp = Qty * sellPrice * piecesValue - discount;
+          // }
+
+          // Calculations (always use normalized Qty)
+          const costp = Qty * costPrice;
+
+          const gain = sellp - costp;
+
+          const orderMode = "Sold";
+          const stk_bal = -BaseQty;
+          const qtyBal = Number(item.qbal) - BaseQty;
+          const stkBalVal = -sellp;
+
+          //console.log({ Qty, sellp, costp, gain });
+
+          const [ordtlID] = await await sequelize.query(
+            `INSERT INTO order_details (
                             orders_id, product_id, quantity, sales_price, discount, total_line, gain,
                             unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
                             vats_amount, date_time, total_costline, manifacture_date, expire_date,
                             commisn_amt, stock_bal_value, qty_type
                           )
                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            {
+              replacements: [
+                orMax, // orders_id
+                item.id, // product_id
+                item.qty, // ✅ normalized quantity
+                sellPrice, // sales_price
+                discount, // discount
+                sellp, // total_line
+                gain, // gain
+                unit_price,
+                dateId,
+                1,
+                d,
+                orderMode,
+                stk_bal,
+                qtyBal,
+                0,
+                dt,
+                costp,
+                0,
+                0,
+                0,
+                stkBalVal,
+                QtyType,
+              ],
+              type: sequelize.QueryTypes.INSERT,
+              transaction,
+            },
+          );
+
+          if (ordtlID.affectedRows === 0) {
+            throw new Error("Insufficient stock");
+          }
+        }
+
+        const ledgerResult = await sequelize.query(
+          `SELECT SUM(balance_amt) AS bal FROM transactions WHERE personid=?`,
           {
-            replacements: [
-              orMax, // orders_id
-              item.id, // product_id
-              item.qty, // ✅ normalized quantity
-              sellPrice, // sales_price
-              discount, // discount
-              sellp, // total_line
-              gain, // gain
-              unit_price,
-              dateId,
-              1,
-              d,
-              orderMode,
-              stk_bal,
-              qtyBal,
-              0,
-              dt,
-              costp,
-              0,
-              0,
-              0,
-              stkBalVal,
-              QtyType,
-            ],
-            type: sequelize.QueryTypes.INSERT,
+            replacements: [customer.id],
+            type: sequelize.QueryTypes.SELECT,
+            transaction,
           },
         );
+
+        // Extract the actual balance number
+        const LedgerBal = ledgerResult[0]?.bal || 0;
+        const staffUser =
+          req.userDtl[0].surname + " " + req.userDtl[0].othername;
+
+        resData = {
+          ...req.body,
+          LedgerBal,
+          staffUser,
+          InvNo: inv_no,
+        };
+
+        // console.log(resData);
+
+        // return resData
       }
 
-      const ledgerResult = await sequelize.query(
-        `SELECT SUM(balance_amt) AS bal FROM transactions WHERE personid=?`,
-        {
-          replacements: [customer.id],
-          type: sequelize.QueryTypes.SELECT,
-        },
-      );
-
-      // Extract the actual balance number
-      const LedgerBal = ledgerResult[0]?.bal || 0;
-      const staffUser = req.userDtl[0].surname + " " + req.userDtl[0].othername;
-
-      resData = {
-        ...req.body,
-        LedgerBal,
-        staffUser,
-        InvNo: inv_no,
-      };
-
-      // console.log(resData);
-
-      // return resData
+      // Everything succeeded
+      await transaction.commit();
+      //console.log(resData)
+      return res.status(200).json({
+        success: true,
+        message: "check Out Successfull",
+        respData: resData,
+        // order_id: orMax,
+        // invoice_no: inv_no
+      });
+    } catch (error) {
+      // Something failed
+      await transaction.rollback();
+      //console.error(error);
+      return res.status(500).json({
+        success: false,
+        message: "Error creating order",
+        error: error.message,
+      });
     }
-
-    //console.log(resData)
-    return res.status(200).json({
-      success: true,
-      message: "check Out Successfull",
-      respData: resData,
-      // order_id: orMax,
-      // invoice_no: inv_no
-    });
-  } catch (error) {
-    //console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: "Error creating order",
-      error: error.message,
-    });
-  }
+  });
 });
 
 router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
   //console.log(req.body)
-
+const transaction = await sequelize.transaction();
   const {
     payVia,
     AmtPaid,
@@ -4111,7 +4178,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
        VALUES (?, '0', ?, ?, ?, ?, '0')`,
       {
         replacements: [customer.id, orderMode, d, str_id, usr_id],
-        type: sequelize.QueryTypes.INSERT,
+        type: sequelize.QueryTypes.INSERT, transaction
       },
     );
 
@@ -4122,7 +4189,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
 
     await sequelize.query(`UPDATE orders SET invoice_no = ? WHERE id = ?`, {
       replacements: [inv_no, orMax],
-      type: sequelize.QueryTypes.UPDATE,
+      type: sequelize.QueryTypes.UPDATE, transaction
     });
 
     if (CartType === "RETURNIN") {
@@ -4165,8 +4232,9 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
         TDsc,
         0,
       );
-
-      for (let item of cart) {
+      
+      const sortedCart = [...cart].sort((a, b) => a.id - b.id);
+      for (let item of sortedCart) {
         let QtyType = item.prdtType;
 
         const selectedUnit = item.units.find(
@@ -4296,8 +4364,8 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
       //      await getTransact.ProcessCheckout(desc, customer.id, "PA",  Number(item.AmtPaid), 0, 0, usr_id, cashid, dateId, 0,TDsc,0);
 
       //   }
-
-      for (let item of cart) {
+    const sortedCart = [...cart].sort((a, b) => a.id - b.id);
+      for (let item of sortedCart) {
         let QtyType = item.prdtType;
 
         const selectedUnit = item.units.find(
@@ -4410,7 +4478,8 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
         0,
       );
 
-      for (let item of cart) {
+    const sortedCart = [...cart].sort((a, b) => a.id - b.id);
+      for (let item of sortedCart) {
         let QtyType = item.prdtType;
 
         const selectedUnit = item.units.find(
@@ -4478,7 +4547,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
         );
       }
     }
-
+    await transaction.commit()
     return res.status(200).json({
       success: true,
       message: "Successfull",
@@ -4486,6 +4555,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
       // invoice_no: inv_no
     });
   } catch (error) {
+    await transaction.rollback()
     // console.error(error);
     return res.status(500).json({
       success: false,

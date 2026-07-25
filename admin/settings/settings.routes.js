@@ -15,8 +15,9 @@ const authorizePermission = require("../auth_role.js");
 const sequelize = require("../../config/database");
 
 router.post("/api/v1/settings", verifyAdmin, async (req, res, next) => {
+  const transaction = await sequelize.transaction();
   try {
-    console.log(req.body);
+    //console.log(req.body);
 
     const settingsSchema = Joi.object({
       expiringAlertPercent: Joi.number().min(0).max(100).required().messages({
@@ -76,17 +77,18 @@ router.post("/api/v1/settings", verifyAdmin, async (req, res, next) => {
           priceMarginPercent: value.priceMarginPercent,
           currency: value.currency,
         },
-        type: sequelize.QueryTypes.UPDATE,
+        type: sequelize.QueryTypes.UPDATE,transaction
       },
     );
 
     //console.log("success");
-
+await transaction.commit()
     return res.status(200).json({
       success: true,
       message: "Settings updated successfully",
     });
   } catch (error) {
+    await transaction.rollback()
     console.error(error);
 
     return res.status(500).json({
@@ -182,7 +184,8 @@ router.post(
   verifyAdmin,
   authorizePermission("settings"),
   async (req, res, next) => {
-     console.log(req.body);
+    const transaction = await sequelize.transaction();
+   //  console.log(req.body);
     //m_perct = Number(req.body.margin_pect);
     const permission = req.body.permitz;
     const rlname = req.body.role_name;
@@ -254,14 +257,14 @@ await sequelize.query(
 
 
 }
-
+await transaction.commit()
 return res.status(200).json({
 success: true,
 message: "Permissions updated successfully",
 });
 
 } catch (error) {
-
+await transaction.rollback()
 console.error(error);
 
 return res.status(500).json({
@@ -280,6 +283,7 @@ router.post(
   authorizePermission("settings"),
   async (req, res, next) => {
     // console.log(req.body);
+    const transaction = await sequelize.transaction();
     m_perct = Number(req.body.margin_pect);
 
     try {
@@ -297,12 +301,13 @@ router.post(
       );
 
       //console.log("success");
-
+      await transaction.commit()
       return res.status(200).json({
         success: true,
         message: "Successfully",
       });
     } catch (error) {
+      await transaction.rollback()
       console.error(error);
 
       return res.status(500).json({
