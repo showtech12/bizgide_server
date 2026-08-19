@@ -30,7 +30,7 @@ const { fn } = require("sequelize");
 
 router.get("/api/v1/posproduct", verifyAdmin, async (req, res) => {
   //console.log(req.userDtl[0].id)
-  const transaction = await sequelize.transaction();
+  // const transaction = await sequelize.transaction();
 
   //  SELECT
   //             p.id AS id,
@@ -117,7 +117,7 @@ router.get("/api/v1/posproduct", verifyAdmin, async (req, res) => {
   try {
     const results = await sequelize.query(qry, {
       type: sequelize.QueryTypes.SELECT,
-      transaction,
+      //transaction,
     });
 
     return res.status(200).json({
@@ -959,14 +959,14 @@ router.post("/api/v1/customer", verifyAdmin, async (req, res) => {
       transaction,
     });
 
-    transaction.commit()
+    transaction.commit();
     return res.status(200).json({
       success: true,
       message: "Customer created successfully",
       insertId: result,
     });
   } catch (error) {
-     await transaction.rollback();
+    await transaction.rollback();
     console.error("Insert Error:", error);
     return res.status(500).json({
       success: false,
@@ -981,7 +981,7 @@ router.post(
   verifyAdmin,
   authorizePermission("journals"),
   async (req, res) => {
-     const transaction = await sequelize.transaction();
+    const transaction = await sequelize.transaction();
     const { txtLedgerName, JournalID, ledgerLabel } = req.body;
     const d = new Date().toISOString().split("T")[0];
     const schema = Joi.object({
@@ -1020,9 +1020,9 @@ router.post(
       const [result] = await sequelize.query(qry, {
         replacements: [txtLedgerName, ledgerLabel, d, JournalID],
         type: sequelize.QueryTypes.INSERT,
-        transaction
+        transaction,
       });
-await transaction.commit();
+      await transaction.commit();
       return res.status(200).json({
         success: true,
         message: "Saved",
@@ -1041,7 +1041,7 @@ await transaction.commit();
 );
 
 router.post("/api/v1/customerupdate", verifyAdmin, async (req, res) => {
-   const transaction = await sequelize.transaction();
+  const transaction = await sequelize.transaction();
   const { id, fullname, email, phone, gender, address, city } = req.body;
 
   // Validate fullname & phone only
@@ -1090,9 +1090,9 @@ router.post("/api/v1/customerupdate", verifyAdmin, async (req, res) => {
     const [result] = await sequelize.query(qry, {
       replacements: [fullname, gender, address, phone, city, email, id],
       type: sequelize.QueryTypes.UPDATE,
-      transaction
+      transaction,
     });
-await transaction.commit();
+    await transaction.commit();
     return res.status(200).json({
       success: true,
       message: "Customer updated successfully",
@@ -1114,16 +1114,17 @@ router.post("/api/v1/hidecus", verifyAdmin, async (req, res, next) => {
   await sequelize
     .query(`UPDATE persons SET flg='HIDE' WHERE id ='${req.body.id}'`, {
       type: sequelize.QueryTypes.UPDATE,
-      transaction
+      transaction,
     })
     .then(() => {
-       transaction.commit();
+      transaction.commit();
       res.status(200).json({
         success: true,
         message: "Deactivated Successful",
       });
-    }).catch(()=>{
-       transaction.rollback();
+    })
+    .catch(() => {
+      transaction.rollback();
     });
 });
 
@@ -1133,7 +1134,7 @@ router.post(
   authorizePermission("stockin"),
   async (req, res, next) => {
     // console.log(req.body);
-const transaction = await sequelize.transaction();
+    const transaction = await sequelize.transaction();
     const {
       stocktype,
       addbal,
@@ -1241,157 +1242,170 @@ const transaction = await sequelize.transaction();
     const d = new Date().toISOString().split("T")[0];
     const dt = new Date();
     const usr_id = req.userDtl[0].id;
+    await getTransact.checkoutWithRetry(async () => {
+      try {
+        // STEP 1: Get the STOCKIN person ID
+        const [personResult] = await sequelize.query(
+          `SELECT id FROM persons WHERE store_id = ? AND contact_type = 'STOCKIN' LIMIT 1`,
+          {
+            replacements: [str_id],
+            type: sequelize.QueryTypes.SELECT,
+            transaction,
+          },
+        );
 
-    try {
-      // STEP 1: Get the STOCKIN person ID
-      const [personResult] = await sequelize.query(
-        `SELECT id FROM persons WHERE store_id = ? AND contact_type = 'STOCKIN' LIMIT 1`,
-        { replacements: [str_id], type: sequelize.QueryTypes.SELECT,transaction },
-      );
+        const persons_id = personResult?.id;
+        if (!persons_id) {
+          return res.status(400).json({
+            success: false,
+            message: "No STOCKIN account found for this store",
+          });
+        }
 
-      const persons_id = personResult?.id;
-      if (!persons_id) {
-        return res.status(400).json({
-          success: false,
-          message: "No STOCKIN account found for this store",
-        });
-      }
-
-      // STEP 2: Insert into orders table
-      const [insertResult] = await sequelize.query(
-        `INSERT INTO orders (persons_id, invoice_no, order_mode, dates, store, users_id, transact_id)
+        // STEP 2: Insert into orders table
+        const [insertResult] = await sequelize.query(
+          `INSERT INTO orders (persons_id, invoice_no, order_mode, dates, store, users_id, transact_id)
        VALUES (?, '0', ?, ?, ?, ?, '0')`,
-        {
-          replacements: [persons_id, or_mode, d, str_id, usr_id],
-          type: sequelize.QueryTypes.INSERT,transaction
-        },
-      );
+          {
+            replacements: [persons_id, or_mode, d, str_id, usr_id],
+            type: sequelize.QueryTypes.INSERT,
+            transaction,
+          },
+        );
 
-      //console.log(insertResult);
-      //return false;
-      const orMax = insertResult; // Inserted order ID
+        //console.log(insertResult);
+        //return false;
+        const orMax = insertResult; // Inserted order ID
 
-      // STEP 3: Update invoice number
-      const inv_no = 1992000 + Number(orMax);
+        // STEP 3: Update invoice number
+        const inv_no = 1992000 + Number(orMax);
 
-      await sequelize.query(`UPDATE orders SET invoice_no = ? WHERE id = ?`, {
-        replacements: [inv_no, orMax],
-        type: sequelize.QueryTypes.UPDATE,transaction
-      });
+        await sequelize.query(`UPDATE orders SET invoice_no = ? WHERE id = ?`, {
+          replacements: [inv_no, orMax],
+          type: sequelize.QueryTypes.UPDATE,
+          transaction,
+        });
 
-      //STEP 4
-      const tline = addbal * cost;
-      //const  penalty = addbal * cost;
-      const dateId = await getDateid.getDateID();
-      //const dateId = 0;
-      console.log("hhhhhh");
+        //STEP 4
+        const tline = addbal * cost;
+        //const  penalty = addbal * cost;
+        const dateId = await getDateid.getDateID();
+        //const dateId = 0;
+        console.log("hhhhhh");
 
-      await getTransact.ProcessTransact(
-        "Stock In",
-        persons_id,
-        "PA",
-        tline,
-        0,
-        0,
-        usr_id,
-        15,
-        dateId,
-        0,
-      );
+        await getTransact.ProcessTransact(
+          "Stock In",
+          persons_id,
+          "PA",
+          tline,
+          0,
+          0,
+          usr_id,
+          15,
+          dateId,
+          0,
+          transaction,
+        );
 
-      await getTransact.ProcessTransact(
-        "Puchase Ledger Stock In ",
-        1,
-        "CA",
-        0,
-        tline,
-        0,
-        usr_id,
-        1,
-        dateId,
-        0,
-      );
+        await getTransact.ProcessTransact(
+          "Puchase Ledger Stock In ",
+          1,
+          "CA",
+          0,
+          tline,
+          0,
+          usr_id,
+          1,
+          dateId,
+          0,
+          transaction,
+        );
 
-      //STEP 5
+        //STEP 5
 
-      // STEP 5: Insert into Details table
+        // STEP 5: Insert into Details table
 
-      function toBase(quantity, selectedPieces_in) {
-        return quantity * selectedPieces_in;
-      }
+        function toBase(quantity, selectedPieces_in) {
+          return quantity * selectedPieces_in;
+        }
 
-      function toBasePrice(quantity, selectedPieces_in) {
-        return quantity * selectedPieces_in;
-      }
+        function toBasePrice(quantity, selectedPieces_in) {
+          return quantity * selectedPieces_in;
+        }
 
-      const txtQty = toBase(addbal, selectedPieces_in);
-      const stk_bal = txtQty;
-      let qty_bal = 0;
-      const costp = addbal * cost;
+        const txtQty = toBase(addbal, selectedPieces_in);
+        const stk_bal = txtQty;
+        let qty_bal = 0;
+        const costp = addbal * cost;
 
-      const [insertDetail] = await sequelize.query(
-        `INSERT INTO order_details (
+        const [insertDetail] = await sequelize.query(
+          `INSERT INTO order_details (
         orders_id, product_id, quantity, sales_price, discount, total_line, gain,
         unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
         vats_amount, date_time, total_costline, manifacture_date, expire_date,
         commisn_amt, stock_bal_value,qty_type
   )
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
-        {
-          replacements: [
-            orMax, // orders_id
-            prdtid, // product_id
-            addbal, // quantity
-            sel_price, // sales_price
-            0, // discount
-            tline, // total_line
-            0, // gain
-            cost, // unit_price
-            dateId, // time_id
-            1, // basket_count (fixed)
-            d, // dated
-            or_mode, // order_mode
-            stk_bal, // stock_bal
-            0, // qty_bal (fixed)
-            qty_bal, // vats_amount
-            dt, // date_time
-            costp, // total_costline
-            0, // manifacture_date
-            0, // expire_date
-            0, // commisn_amt
-            costp, // stock_bal_value
-            selectedUnit, // stock_bal_value
-          ],
-          type: sequelize.QueryTypes.INSERT,transaction
-        },
-      );
+          {
+            replacements: [
+              orMax, // orders_id
+              prdtid, // product_id
+              addbal, // quantity
+              sel_price, // sales_price
+              0, // discount
+              tline, // total_line
+              0, // gain
+              cost, // unit_price
+              dateId, // time_id
+              1, // basket_count (fixed)
+              d, // dated
+              or_mode, // order_mode
+              stk_bal, // stock_bal
+              0, // qty_bal (fixed)
+              qty_bal, // vats_amount
+              dt, // date_time
+              costp, // total_costline
+              0, // manifacture_date
+              0, // expire_date
+              0, // commisn_amt
+              costp, // stock_bal_value
+              selectedUnit, // stock_bal_value
+            ],
+            type: sequelize.QueryTypes.INSERT,
+            transaction,
+          },
+        );
 
-      //insertDetail
-      qty_bal = await getTransact.getStockBal(prdtid, 1);
+        //insertDetail
+        qty_bal = await getTransact.getStockBal(prdtid, 1, transaction);
+       // const DBQtyBal = await getTransact.QtyBal(item.id, transaction);
+        //  const qtyBal = Number(DBQtyBal) - BaseQty;
 
-      await sequelize.query(
-        `UPDATE order_details SET qty_bal=?  WHERE id = ?`,
-        {
-          replacements: [qty_bal, insertDetail],
-          type: sequelize.QueryTypes.UPDATE,transaction
-        },
-      );
-await transaction.commit();
-      return res.status(200).json({
-        success: true,
-        message: "Stock Added Successfull",
-        // order_id: orMax,
-        // invoice_no: inv_no
-      });
-    } catch (error) {
-      await transaction.rollback();
-      console.error(error);
-      return res.status(500).json({
-        success: false,
-        message: "Error creating order",
-        error: error.message,
-      });
-    }
+        await sequelize.query(
+          `UPDATE order_details SET qty_bal=?  WHERE id = ?`,
+          {
+            replacements: [qty_bal, insertDetail],
+            type: sequelize.QueryTypes.UPDATE,
+            transaction,
+          },
+        );
+        await transaction.commit();
+        return res.status(200).json({
+          success: true,
+          message: "Stock Added Successfull",
+          // order_id: orMax,
+          // invoice_no: inv_no
+        });
+      } catch (error) {
+        await transaction.rollback();
+        console.error(error);
+        return res.status(500).json({
+          success: false,
+          message: "Error creating order",
+          error: error.message,
+        });
+      }
+    });
   },
 );
 //===
@@ -1540,7 +1554,7 @@ router.post(
     console.log(qry);
     try {
       sequelize
-        .query(qry, { type: sequelize.QueryTypes.SELECT,transaction })
+        .query(qry, { type: sequelize.QueryTypes.SELECT, transaction })
 
         .then((results) => {
           transaction.commit();
@@ -1553,7 +1567,7 @@ router.post(
           });
         })
         .catch((error) => {
-           transaction.rollback();
+          transaction.rollback();
           //console.error('Error fetching data:', error);
           res.status(200).json({
             success: false,
@@ -2447,17 +2461,18 @@ router.post(
 
 router.post("/api/v1/delOrder", verifyAdmin, async (req, res) => {
   const transaction = await sequelize.transaction();
-  try {
-    const { id } = req.body;
+  await getTransact.checkoutWithRetry(async () => {
+    try {
+      const { id } = req.body;
 
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        message: "Order ID is required.",
-      });
-    }
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Order ID is required.",
+        });
+      }
 
-    const qry = `
+      const qry = `
       DELETE o, od, tr
       FROM orders o
       LEFT JOIN order_details od
@@ -2467,24 +2482,26 @@ router.post("/api/v1/delOrder", verifyAdmin, async (req, res) => {
       WHERE o.id = :id
     `;
 
-    await sequelize.query(qry, {
-      replacements: { id },
-      type: sequelize.QueryTypes.DELETE, transaction
-    });
-   await transaction.commit()
-    return res.status(200).json({
-      success: true,
-      message: "Order deleted successfully.",
-    });
-  } catch (error) {
-    // console.error("Delete Order Error:", error);
-    await transaction.rollback()
-    return res.status(500).json({
-      success: false,
-      message: "Failed to delete order.",
-      error: error.message,
-    });
-  }
+      await sequelize.query(qry, {
+        replacements: { id },
+        type: sequelize.QueryTypes.DELETE,
+        transaction,
+      });
+      await transaction.commit();
+      return res.status(200).json({
+        success: true,
+        message: "Order deleted successfully.",
+      });
+    } catch (error) {
+      // console.error("Delete Order Error:", error);
+      await transaction.rollback();
+      return res.status(500).json({
+        success: false,
+        message: "Failed to delete order.",
+        error: error.message,
+      });
+    }
+  });
 });
 
 router.post(
@@ -2672,174 +2689,179 @@ router.post(
   verifyAdmin,
   authorizePermission("post"),
   async (req, res) => {
+    const transaction = await sequelize.transaction();
+    await getTransact.checkoutWithRetry(async () => {
+      try {
+        // ===================== VALIDATION SCHEMA =====================
+        const schema = Joi.object({
+          walletID: Joi.number().integer().positive().required().messages({
+            "number.base": "Payment wallet must be a number",
+            "number.positive": "Invalid payment wallet",
+            "any.required": "Payment wallet is required",
+          }),
 
-   const transaction = await sequelize.transaction();
-    try {
-      // ===================== VALIDATION SCHEMA =====================
-      const schema = Joi.object({
-        walletID: Joi.number().integer().positive().required().messages({
-          "number.base": "Payment wallet must be a number",
-          "number.positive": "Invalid payment wallet",
-          "any.required": "Payment wallet is required",
-        }),
+          customerID: Joi.number().integer().positive().required().messages({
+            "number.base": "Customer ID must be a number",
+            "number.positive": "Invalid Customer ID",
+            "any.required": "Customer ID is required",
+          }),
 
-        customerID: Joi.number().integer().positive().required().messages({
-          "number.base": "Customer ID must be a number",
-          "number.positive": "Invalid Customer ID",
-          "any.required": "Customer ID is required",
-        }),
+          txtAmount: Joi.number().positive().required().messages({
+            "number.base": "Amount must be numeric",
+            "number.positive": "Amount must be greater than zero",
+            "any.required": "Amount is required",
+          }),
 
-        txtAmount: Joi.number().positive().required().messages({
-          "number.base": "Amount must be numeric",
-          "number.positive": "Amount must be greater than zero",
-          "any.required": "Amount is required",
-        }),
+          txtDesc: Joi.string().trim().min(3).required().messages({
+            "string.empty": "Description is required",
+          }),
 
-        txtDesc: Joi.string().trim().min(3).required().messages({
-          "string.empty": "Description is required",
-        }),
+          posttype: Joi.string().valid("CREDIT", "DEBIT").required().messages({
+            "any.only": "Post type must be CREDIT or DEBIT",
+            "any.required": "Post type is required",
+          }),
 
-        posttype: Joi.string().valid("CREDIT", "DEBIT").required().messages({
-          "any.only": "Post type must be CREDIT or DEBIT",
-          "any.required": "Post type is required",
-        }),
+          customerName: Joi.string().trim().required(),
 
-        customerName: Joi.string().trim().required(),
+          walletText: Joi.string().trim().required(),
+        });
 
-        walletText: Joi.string().trim().required(),
-      });
+        // ===================== VALIDATE REQUEST =====================
+        const { error, value } = schema.validate(req.body, {
+          abortEarly: false,
+          convert: true,
+          stripUnknown: true,
+        });
 
-      // ===================== VALIDATE REQUEST =====================
-      const { error, value } = schema.validate(req.body, {
-        abortEarly: false,
-        convert: true,
-        stripUnknown: true,
-      });
+        if (error) {
+          return res.status(400).json({
+            success: false,
+            message: error.details.map((d) => d.message),
+          });
+        }
 
-      if (error) {
-        return res.status(400).json({
+        // ===================== EXTRACT VALIDATED DATA =====================
+        const {
+          walletID,
+          customerID,
+          txtAmount,
+          txtDesc,
+          posttype,
+          customerName,
+          walletText,
+        } = value;
+
+        // ===================== BUSINESS RULES =====================
+        if (walletID === customerID) {
+          return res.status(400).json({
+            success: false,
+            message: "Wallet and Customer ledger cannot be the same",
+          });
+        }
+
+        // ===================== SYSTEM VALUES =====================
+        const usr_id = req.userDtl[0].id;
+        const dateId = await getDateid.getDateID();
+
+        const cashid = await getTransact.get1Col("la_id", "persons", walletID);
+
+        // ===================== POSTING LOGIC =====================
+        if (posttype === "DEBIT") {
+          // First Leg – Credit Wallet (Cash Account)
+          let desc = `Cash paid by ${customerName} via ${walletText} - ${txtDesc}`;
+
+          await getTransact.ProcessCheckout(
+            desc,
+            walletID,
+            "CA",
+            0,
+            txtAmount,
+            walletID,
+            usr_id,
+            cashid,
+            dateId,
+            0,
+            0,
+            0,
+            transaction,
+          );
+
+          // Second Leg – Debit Customer Ledger
+          desc = `Cash paid by ${customerName} via ${walletText} - ${txtDesc}`;
+
+          const TxID = await getTransact.ProcessCheckout(
+            desc,
+            customerID,
+            "PA",
+
+            txtAmount,
+            0,
+            walletID,
+            usr_id,
+            cashid,
+            dateId,
+            0,
+            0,
+            0,
+            transaction,
+          );
+        }
+
+        if (posttype === "CREDIT") {
+          // First Leg – Debit Wallet (Cash Account)
+          let desc = `Cash paid to ${customerName}`;
+
+          await getTransact.ProcessCheckout(
+            desc,
+            walletID,
+            "CA",
+            txtAmount,
+            0,
+            cashid,
+            usr_id,
+            walletID,
+            dateId,
+            0,
+            0,
+            0,
+            transaction,
+          );
+
+          // Second Leg – Credit Customer Ledger
+          desc = `Cash paid to ${customerName} via ${walletText} - ${txtDesc}`;
+
+          await getTransact.ProcessCheckout(
+            desc,
+            customerID,
+            "PA",
+            0,
+            txtAmount,
+            cashid,
+            usr_id,
+            walletID,
+            dateId,
+            0,
+            0,
+            0,
+            transaction,
+          );
+        }
+
+        await transaction.commit();
+        // ===================== SUCCESS RESPONSE =====================
+        return res.status(200).json({
+          success: true,
+          message: "Checkout completed successfully",
+        });
+      } catch (err) {
+        await transaction.rollback();
+        console.error(err);
+        return res.status(500).json({
           success: false,
-          message: error.details.map((d) => d.message),
+          message: "Server error occurred while processing transaction",
         });
       }
-
-      // ===================== EXTRACT VALIDATED DATA =====================
-      const {
-        walletID,
-        customerID,
-        txtAmount,
-        txtDesc,
-        posttype,
-        customerName,
-        walletText,
-      } = value;
-
-      // ===================== BUSINESS RULES =====================
-      if (walletID === customerID) {
-        return res.status(400).json({
-          success: false,
-          message: "Wallet and Customer ledger cannot be the same",
-        });
-      }
-
-      // ===================== SYSTEM VALUES =====================
-      const usr_id = req.userDtl[0].id;
-      const dateId = await getDateid.getDateID();
-
-      const cashid = await getTransact.get1Col("la_id", "persons", walletID);
-
-      // ===================== POSTING LOGIC =====================
-      if (posttype === "DEBIT") {
-        // First Leg – Credit Wallet (Cash Account)
-        let desc = `Cash paid by ${customerName} via ${walletText} - ${txtDesc}`;
-
-        await getTransact.ProcessCheckout(
-          desc,
-          walletID,
-          "CA",
-          0,
-          txtAmount,
-          walletID,
-          usr_id,
-          cashid,
-          dateId,
-          0,
-          0,
-          0,
-        );
-
-        // Second Leg – Debit Customer Ledger
-        desc = `Cash paid by ${customerName} via ${walletText} - ${txtDesc}`;
-
-        const TxID = await getTransact.ProcessCheckout(
-          desc,
-          customerID,
-          "PA",
-
-          txtAmount,
-          0,
-          walletID,
-          usr_id,
-          cashid,
-          dateId,
-          0,
-          0,
-          0,
-        );
-      }
-
-      if (posttype === "CREDIT") {
-        // First Leg – Debit Wallet (Cash Account)
-        let desc = `Cash paid to ${customerName}`;
-
-        await getTransact.ProcessCheckout(
-          desc,
-          walletID,
-          "CA",
-          txtAmount,
-          0,
-          cashid,
-          usr_id,
-          walletID,
-          dateId,
-          0,
-          0,
-          0,
-        );
-
-        // Second Leg – Credit Customer Ledger
-        desc = `Cash paid to ${customerName} via ${walletText} - ${txtDesc}`;
-
-        await getTransact.ProcessCheckout(
-          desc,
-          customerID,
-          "PA",
-          0,
-          txtAmount,
-          cashid,
-          usr_id,
-          walletID,
-          dateId,
-          0,
-          0,
-          0,
-        );
-      }
-
-      await transaction.commit()
-      // ===================== SUCCESS RESPONSE =====================
-      return res.status(200).json({
-        success: true,
-        message: "Checkout completed successfully",
-      });
-    } catch (err) {
-      await transaction.rollback()
-      console.error(err);
-      return res.status(500).json({
-        success: false,
-        message: "Server error occurred while processing transaction",
-      });
-    }
+    });
   },
 );
 
@@ -2941,6 +2963,7 @@ router.post(
           0,
           0,
           0,
+          transaction,
         );
 
         // Second Leg – Debit Customer Ledger
@@ -2964,6 +2987,7 @@ router.post(
           0,
           0,
           0,
+          transaction,
         );
       }
 
@@ -2985,6 +3009,7 @@ router.post(
           0,
           0,
           0,
+          transaction,
         );
 
         // Second Leg – Credit Customer Ledger
@@ -3008,17 +3033,18 @@ router.post(
           0,
           0,
           0,
+          transaction,
         );
       }
 
-      transaction.commit()
+      transaction.commit();
       // ===================== SUCCESS RESPONSE =====================
       return res.status(200).json({
         success: true,
         message: "Successful",
       });
     } catch (err) {
-      transaction.rollback()
+      transaction.rollback();
       console.error(err);
       return res.status(500).json({
         success: false,
@@ -3034,181 +3060,185 @@ router.post(
   authorizePermission("capital"),
   async (req, res) => {
     const transaction = await sequelize.transaction();
-    try {
-      // ===================== VALIDATION SCHEMA =====================
-      const schema = Joi.object({
-        walletID: Joi.number().integer().positive().required().messages({
-          "number.base": "Payment wallet must be a number",
-          "number.positive": "Invalid payment wallet",
-          "any.required": "Payment wallet is required",
-        }),
+    await getTransact.checkoutWithRetry(async () => {
+      try {
+        // ===================== VALIDATION SCHEMA =====================
+        const schema = Joi.object({
+          walletID: Joi.number().integer().positive().required().messages({
+            "number.base": "Payment wallet must be a number",
+            "number.positive": "Invalid payment wallet",
+            "any.required": "Payment wallet is required",
+          }),
 
-        AccountID: Joi.number().integer().positive().required().messages({
-          "number.base": "Customer ID must be a number",
-          "number.positive": "Invalid Customer ID",
-          "any.required": "Customer ID is required",
-        }),
+          AccountID: Joi.number().integer().positive().required().messages({
+            "number.base": "Customer ID must be a number",
+            "number.positive": "Invalid Customer ID",
+            "any.required": "Customer ID is required",
+          }),
 
-        txtAmount: Joi.number().positive().required().messages({
-          "number.base": "Amount must be numeric",
-          "number.positive": "Amount must be greater than zero",
-          "any.required": "Amount is required",
-        }),
+          txtAmount: Joi.number().positive().required().messages({
+            "number.base": "Amount must be numeric",
+            "number.positive": "Amount must be greater than zero",
+            "any.required": "Amount is required",
+          }),
 
-        // txtDesc: Joi.string()
-        //   .trim()
-        //   .min(3)
-        //   .required()
-        //   .messages({
-        //     "string.empty": "Description is required",
-        //   }),
+          // txtDesc: Joi.string()
+          //   .trim()
+          //   .min(3)
+          //   .required()
+          //   .messages({
+          //     "string.empty": "Description is required",
+          //   }),
 
-        // posttype: Joi.string()
-        //   .valid("CREDIT", "DEBIT")
-        //   .required()
-        //   .messages({
-        //     "any.only": "Post type must be CREDIT or DEBIT",
-        //     "any.required": "Post type is required",
-        //   }),
+          // posttype: Joi.string()
+          //   .valid("CREDIT", "DEBIT")
+          //   .required()
+          //   .messages({
+          //     "any.only": "Post type must be CREDIT or DEBIT",
+          //     "any.required": "Post type is required",
+          //   }),
 
-        AccountName: Joi.string().trim().required(),
+          AccountName: Joi.string().trim().required(),
 
-        walletText: Joi.string().trim().required(),
-      });
+          walletText: Joi.string().trim().required(),
+        });
 
-      // ===================== VALIDATE REQUEST =====================
-      const { error, value } = schema.validate(req.body, {
-        abortEarly: false,
-        convert: true,
-        stripUnknown: true,
-      });
+        // ===================== VALIDATE REQUEST =====================
+        const { error, value } = schema.validate(req.body, {
+          abortEarly: false,
+          convert: true,
+          stripUnknown: true,
+        });
 
-      if (error) {
-        return res.status(400).json({
+        if (error) {
+          return res.status(400).json({
+            success: false,
+            message: error.details.map((d) => d.message),
+          });
+        }
+
+        // ===================== EXTRACT VALIDATED DATA =====================
+        const {
+          walletID,
+          AccountID,
+          txtAmount,
+          // txtDesc,
+          // posttype,
+          AccountName,
+          walletText,
+        } = value;
+
+        // ===================== BUSINESS RULES =====================
+        if (walletID === AccountID) {
+          return res.status(400).json({
+            success: false,
+            message: "Wallet and Customer ledger cannot be the same",
+          });
+        }
+
+        // ===================== SYSTEM VALUES =====================
+        const usr_id = req.userDtl[0].id;
+        const dateId = await getDateid.getDateID();
+        const cashid = await getTransact.get1Col("la_id", "persons", walletID);
+
+        // ===================== POSTING LOGIC =====================
+        //if (posttype === "CREDIT") {
+        // First Leg – Credit Wallet (Cash Account)
+        //let desc = `Remove from ${walletText} wallet Account to ${AccountName} Account - ${txtDesc}`;
+        let desc = `Remove from  ${AccountName} Account to ${walletText} wallet Account`;
+
+        await getTransact.ProcessCheckout(
+          desc,
+          walletID,
+          "CA",
+          0,
+          txtAmount,
+          cashid,
+          usr_id,
+          walletID,
+          dateId,
+          0,
+          0,
+          0,
+          transaction,
+        );
+
+        // Second Leg – Debit Customer Ledger
+        desc = `Remove from  ${AccountName} Account to ${walletText} wallet Account`;
+
+        await getTransact.ProcessCheckout(
+          desc,
+          AccountID,
+          "CA",
+          txtAmount,
+          0,
+          cashid,
+          usr_id,
+          walletID,
+          dateId,
+          0,
+          0,
+          0,
+          transaction,
+        );
+
+        // }
+
+        // if (posttype === "DEBIT") {
+        //   // First Leg – Debit Wallet (Cash Account)
+        //   let desc = `Return to ${walletText} wallet Account from ${AccountName} Account - ${txtDesc}`;
+
+        //   await getTransact.ProcessCheckout(
+        //     desc,
+        //     walletID,
+        //     "CA",
+        //      0,
+        //     txtAmount,
+
+        //     cashid,
+        //     usr_id,
+        //     walletID,
+        //     dateId,
+        //     0,
+        //     0,
+        //     0
+        //   );
+
+        //   // Second Leg – Credit Customer Ledger
+        //   desc = `Return to ${walletText} wallet Account from ${AccountName} Account - ${txtDesc}`;
+
+        //   await getTransact.ProcessCheckout(
+        //     desc,
+        //     AccountID,
+        //     "CA",
+
+        //     txtAmount,
+        //     0,
+        //     cashid,
+        //     usr_id,
+        //     walletID,
+        //     dateId,
+        //     0,
+        //     0,
+        //     0
+        //   );
+        // }
+
+        await transaction.commit();
+        // ===================== SUCCESS RESPONSE =====================
+        return res.status(200).json({
+          success: true,
+          message: "Successful",
+        });
+      } catch (err) {
+        await transaction.rollback();
+        console.error(err);
+        return res.status(500).json({
           success: false,
-          message: error.details.map((d) => d.message),
+          message: "Server error occurred while processing transaction",
         });
       }
-
-      // ===================== EXTRACT VALIDATED DATA =====================
-      const {
-        walletID,
-        AccountID,
-        txtAmount,
-        // txtDesc,
-        // posttype,
-        AccountName,
-        walletText,
-      } = value;
-
-      // ===================== BUSINESS RULES =====================
-      if (walletID === AccountID) {
-        return res.status(400).json({
-          success: false,
-          message: "Wallet and Customer ledger cannot be the same",
-        });
-      }
-
-      // ===================== SYSTEM VALUES =====================
-      const usr_id = req.userDtl[0].id;
-      const dateId = await getDateid.getDateID();
-      const cashid = await getTransact.get1Col("la_id", "persons", walletID);
-
-      // ===================== POSTING LOGIC =====================
-      //if (posttype === "CREDIT") {
-      // First Leg – Credit Wallet (Cash Account)
-      //let desc = `Remove from ${walletText} wallet Account to ${AccountName} Account - ${txtDesc}`;
-      let desc = `Remove from  ${AccountName} Account to ${walletText} wallet Account`;
-
-      await getTransact.ProcessCheckout(
-        desc,
-        walletID,
-        "CA",
-        0,
-        txtAmount,
-        cashid,
-        usr_id,
-        walletID,
-        dateId,
-        0,
-        0,
-        0,
-      );
-
-      // Second Leg – Debit Customer Ledger
-      desc = `Remove from  ${AccountName} Account to ${walletText} wallet Account`;
-
-      await getTransact.ProcessCheckout(
-        desc,
-        AccountID,
-        "CA",
-        txtAmount,
-        0,
-        cashid,
-        usr_id,
-        walletID,
-        dateId,
-        0,
-        0,
-        0,
-      );
-
-      // }
-
-      // if (posttype === "DEBIT") {
-      //   // First Leg – Debit Wallet (Cash Account)
-      //   let desc = `Return to ${walletText} wallet Account from ${AccountName} Account - ${txtDesc}`;
-
-      //   await getTransact.ProcessCheckout(
-      //     desc,
-      //     walletID,
-      //     "CA",
-      //      0,
-      //     txtAmount,
-
-      //     cashid,
-      //     usr_id,
-      //     walletID,
-      //     dateId,
-      //     0,
-      //     0,
-      //     0
-      //   );
-
-      //   // Second Leg – Credit Customer Ledger
-      //   desc = `Return to ${walletText} wallet Account from ${AccountName} Account - ${txtDesc}`;
-
-      //   await getTransact.ProcessCheckout(
-      //     desc,
-      //     AccountID,
-      //     "CA",
-
-      //     txtAmount,
-      //     0,
-      //     cashid,
-      //     usr_id,
-      //     walletID,
-      //     dateId,
-      //     0,
-      //     0,
-      //     0
-      //   );
-      // }
-
-     await transaction.commit()
-      // ===================== SUCCESS RESPONSE =====================
-      return res.status(200).json({
-        success: true,
-        message: "Successful",
-      });
-    } catch (err) {
-    await  transaction.rollback()
-      console.error(err);
-      return res.status(500).json({
-        success: false,
-        message: "Server error occurred while processing transaction",
-      });
-    }
+    });
   },
 );
 
@@ -3218,177 +3248,183 @@ router.post(
   authorizePermission("cashbook"),
   async (req, res) => {
     const transaction = await sequelize.transaction();
-    try {
-      // ===================== VALIDATION SCHEMA =====================
-      const schema = Joi.object({
-        walletID: Joi.number().integer().positive().required().messages({
-          "number.base": "Payment wallet must be a number",
-          "number.positive": "Invalid payment wallet",
-          "any.required": "Payment wallet is required",
-        }),
+    await getTransact.checkoutWithRetry(async () => {
+      try {
+        // ===================== VALIDATION SCHEMA =====================
+        const schema = Joi.object({
+          walletID: Joi.number().integer().positive().required().messages({
+            "number.base": "Payment wallet must be a number",
+            "number.positive": "Invalid payment wallet",
+            "any.required": "Payment wallet is required",
+          }),
 
-        AccountID: Joi.number().integer().positive().required().messages({
-          "number.base": "Customer ID must be a number",
-          "number.positive": "Invalid Customer ID",
-          "any.required": "Customer ID is required",
-        }),
+          AccountID: Joi.number().integer().positive().required().messages({
+            "number.base": "Customer ID must be a number",
+            "number.positive": "Invalid Customer ID",
+            "any.required": "Customer ID is required",
+          }),
 
-        txtAmount: Joi.number().positive().required().messages({
-          "number.base": "Amount must be numeric",
-          "number.positive": "Amount must be greater than zero",
-          "any.required": "Amount is required",
-        }),
+          txtAmount: Joi.number().positive().required().messages({
+            "number.base": "Amount must be numeric",
+            "number.positive": "Amount must be greater than zero",
+            "any.required": "Amount is required",
+          }),
 
-        // txtDesc: Joi.string()
-        //   .trim()
-        //   .min(3)
-        //   .required()
-        //   .messages({
-        //     "string.empty": "Description is required",
-        //   }),
+          // txtDesc: Joi.string()
+          //   .trim()
+          //   .min(3)
+          //   .required()
+          //   .messages({
+          //     "string.empty": "Description is required",
+          //   }),
 
-        posttype: Joi.string().valid("CREDIT", "DEBIT").required().messages({
-          "any.only": "Post type must be CREDIT or DEBIT",
-          "any.required": "Post type is required",
-        }),
+          posttype: Joi.string().valid("CREDIT", "DEBIT").required().messages({
+            "any.only": "Post type must be CREDIT or DEBIT",
+            "any.required": "Post type is required",
+          }),
 
-        AccountName: Joi.string().trim().required(),
+          AccountName: Joi.string().trim().required(),
 
-        walletText: Joi.string().trim().required(),
-      });
+          walletText: Joi.string().trim().required(),
+        });
 
-      // ===================== VALIDATE REQUEST =====================
-      const { error, value } = schema.validate(req.body, {
-        abortEarly: false,
-        convert: true,
-        stripUnknown: true,
-      });
+        // ===================== VALIDATE REQUEST =====================
+        const { error, value } = schema.validate(req.body, {
+          abortEarly: false,
+          convert: true,
+          stripUnknown: true,
+        });
 
-      if (error) {
-        return res.status(400).json({
+        if (error) {
+          return res.status(400).json({
+            success: false,
+            message: error.details.map((d) => d.message),
+          });
+        }
+
+        // ===================== EXTRACT VALIDATED DATA =====================
+        const {
+          walletID,
+          AccountID,
+          txtAmount,
+          // txtDesc,
+          posttype,
+          AccountName,
+          walletText,
+        } = value;
+
+        // ===================== BUSINESS RULES =====================
+        if (walletID === AccountID) {
+          return res.status(400).json({
+            success: false,
+            message: "Wallet and Customer ledger cannot be the same",
+          });
+        }
+
+        // ===================== SYSTEM VALUES =====================
+        const usr_id = req.userDtl[0].id;
+        const dateId = await getDateid.getDateID();
+        const cashid = await getTransact.get1Col("la_id", "persons", walletID);
+
+        // ===================== POSTING LOGIC =====================
+        if (posttype === "CREDIT") {
+          let desc = `Amount Withdraw from  ${AccountName}`;
+          // Second Leg – Debit Customer Ledger
+
+          await getTransact.ProcessCheckout(
+            desc,
+            AccountID,
+            "CA",
+            txtAmount,
+            0,
+            5,
+            usr_id,
+            5,
+            dateId,
+            0,
+            0,
+            0,
+            transaction,
+          );
+
+          // First Leg – Credit Wallet (Cash Account)
+          //let desc = `Remove from ${walletText} wallet Account to ${AccountName} Account - ${txtDesc}`;
+          desc = `Amount Saved to ${walletText}`;
+
+          await getTransact.ProcessCheckout(
+            desc,
+            walletID,
+            "CA",
+            0,
+            txtAmount,
+            cashid,
+            usr_id,
+            walletID,
+            dateId,
+            0,
+            0,
+            0,
+            transaction,
+          );
+        }
+
+        if (posttype === "DEBIT") {
+          // First Leg – Debit Wallet (Cash Account)
+          let desc = `Amount Saved to ${AccountName}`;
+
+          await getTransact.ProcessCheckout(
+            desc,
+            AccountID,
+            "CA",
+            0,
+            txtAmount,
+
+            5,
+            usr_id,
+            5,
+            dateId,
+            0,
+            0,
+            0,
+            transaction,
+          );
+
+          // Second Leg – Credit Customer Ledger
+          desc = `Amount Withdraw from  ${walletText}`;
+
+          await getTransact.ProcessCheckout(
+            desc,
+            walletID,
+            "CA",
+            txtAmount,
+            0,
+
+            cashid,
+            usr_id,
+            walletID,
+            dateId,
+            0,
+            0,
+            0,
+            transaction,
+          );
+        }
+
+        await transaction.commit();
+        // ===================== SUCCESS RESPONSE =====================
+        return res.status(200).json({
+          success: true,
+          message: "Successful",
+        });
+      } catch (err) {
+        await transaction.rollback();
+        console.error(err);
+        return res.status(500).json({
           success: false,
-          message: error.details.map((d) => d.message),
+          message: "Server error occurred while processing transaction",
         });
       }
-
-      // ===================== EXTRACT VALIDATED DATA =====================
-      const {
-        walletID,
-        AccountID,
-        txtAmount,
-        // txtDesc,
-        posttype,
-        AccountName,
-        walletText,
-      } = value;
-
-      // ===================== BUSINESS RULES =====================
-      if (walletID === AccountID) {
-        return res.status(400).json({
-          success: false,
-          message: "Wallet and Customer ledger cannot be the same",
-        });
-      }
-
-      // ===================== SYSTEM VALUES =====================
-      const usr_id = req.userDtl[0].id;
-      const dateId = await getDateid.getDateID();
-      const cashid = await getTransact.get1Col("la_id", "persons", walletID);
-
-      // ===================== POSTING LOGIC =====================
-      if (posttype === "CREDIT") {
-        let desc = `Amount Withdraw from  ${AccountName}`;
-        // Second Leg – Debit Customer Ledger
-
-        await getTransact.ProcessCheckout(
-          desc,
-          AccountID,
-          "CA",
-          txtAmount,
-          0,
-          5,
-          usr_id,
-          5,
-          dateId,
-          0,
-          0,
-          0,
-        );
-
-        // First Leg – Credit Wallet (Cash Account)
-        //let desc = `Remove from ${walletText} wallet Account to ${AccountName} Account - ${txtDesc}`;
-        desc = `Amount Saved to ${walletText}`;
-
-        await getTransact.ProcessCheckout(
-          desc,
-          walletID,
-          "CA",
-          0,
-          txtAmount,
-          cashid,
-          usr_id,
-          walletID,
-          dateId,
-          0,
-          0,
-          0,
-        );
-      }
-
-      if (posttype === "DEBIT") {
-        // First Leg – Debit Wallet (Cash Account)
-        let desc = `Amount Saved to ${AccountName}`;
-
-        await getTransact.ProcessCheckout(
-          desc,
-          AccountID,
-          "CA",
-          0,
-          txtAmount,
-
-          5,
-          usr_id,
-          5,
-          dateId,
-          0,
-          0,
-          0,
-        );
-
-        // Second Leg – Credit Customer Ledger
-        desc = `Amount Withdraw from  ${walletText}`;
-
-        await getTransact.ProcessCheckout(
-          desc,
-          walletID,
-          "CA",
-          txtAmount,
-          0,
-
-          cashid,
-          usr_id,
-          walletID,
-          dateId,
-          0,
-          0,
-          0,
-        );
-      }
-
-    await  transaction.commit()
-      // ===================== SUCCESS RESPONSE =====================
-      return res.status(200).json({
-        success: true,
-        message: "Successful",
-      });
-    } catch (err) {
-    await  transaction.rollback()
-      console.error(err);
-      return res.status(500).json({
-        success: false,
-        message: "Server error occurred while processing transaction",
-      });
-    }
+    });
   },
 );
 
@@ -3398,183 +3434,187 @@ router.post(
   authorizePermission("otherincome"),
   async (req, res) => {
     const transaction = await sequelize.transaction();
-    try {
-      // ===================== VALIDATION SCHEMA =====================
-      const schema = Joi.object({
-        walletID: Joi.number().integer().positive().required().messages({
-          "number.base": "Payment wallet must be a number",
-          "number.positive": "Invalid payment wallet",
-          "any.required": "Payment wallet is required",
-        }),
+    await getTransact.checkoutWithRetry(async () => {
+      try {
+        // ===================== VALIDATION SCHEMA =====================
+        const schema = Joi.object({
+          walletID: Joi.number().integer().positive().required().messages({
+            "number.base": "Payment wallet must be a number",
+            "number.positive": "Invalid payment wallet",
+            "any.required": "Payment wallet is required",
+          }),
 
-        // AccountID: Joi.number()
-        //   .integer()
-        //   .positive()
-        //   .required()
-        //   .messages({
-        //     "number.base": "Customer ID must be a number",
-        //     "number.positive": "Invalid Customer ID",
-        //     "any.required": "Customer ID is required",
-        //   }),
+          // AccountID: Joi.number()
+          //   .integer()
+          //   .positive()
+          //   .required()
+          //   .messages({
+          //     "number.base": "Customer ID must be a number",
+          //     "number.positive": "Invalid Customer ID",
+          //     "any.required": "Customer ID is required",
+          //   }),
 
-        txtAmount: Joi.number().positive().required().messages({
-          "number.base": "Amount must be numeric",
-          "number.positive": "Amount must be greater than zero",
-          "any.required": "Amount is required",
-        }),
+          txtAmount: Joi.number().positive().required().messages({
+            "number.base": "Amount must be numeric",
+            "number.positive": "Amount must be greater than zero",
+            "any.required": "Amount is required",
+          }),
 
-        txtDesc: Joi.string().trim().min(3).required().messages({
-          "string.empty": "Description is required",
-        }),
+          txtDesc: Joi.string().trim().min(3).required().messages({
+            "string.empty": "Description is required",
+          }),
 
-        // posttype: Joi.string()
-        //   .valid("CREDIT", "DEBIT")
-        //   .required()
-        //   .messages({
-        //     "any.only": "Post type must be CREDIT or DEBIT",
-        //     "any.required": "Post type is required",
-        //   }),
+          // posttype: Joi.string()
+          //   .valid("CREDIT", "DEBIT")
+          //   .required()
+          //   .messages({
+          //     "any.only": "Post type must be CREDIT or DEBIT",
+          //     "any.required": "Post type is required",
+          //   }),
 
-        // AccountName: Joi.string()
-        //   .trim()
-        //   .required(),
+          // AccountName: Joi.string()
+          //   .trim()
+          //   .required(),
 
-        walletText: Joi.string().trim().required(),
-      });
+          walletText: Joi.string().trim().required(),
+        });
 
-      // ===================== VALIDATE REQUEST =====================
-      const { error, value } = schema.validate(req.body, {
-        abortEarly: false,
-        convert: true,
-        stripUnknown: true,
-      });
+        // ===================== VALIDATE REQUEST =====================
+        const { error, value } = schema.validate(req.body, {
+          abortEarly: false,
+          convert: true,
+          stripUnknown: true,
+        });
 
-      if (error) {
-        return res.status(400).json({
+        if (error) {
+          return res.status(400).json({
+            success: false,
+            message: error.details.map((d) => d.message),
+          });
+        }
+
+        // ===================== EXTRACT VALIDATED DATA =====================
+        const {
+          walletID,
+          // AccountID,
+          txtAmount,
+          txtDesc,
+          // posttype,
+          //AccountName,
+          walletText,
+        } = value;
+
+        // ===================== BUSINESS RULES =====================
+        // if (walletID === AccountID) {
+        //   return res.status(400).json({
+        //     success: false,
+        //     message: "Wallet and Customer ledger cannot be the same",
+        //   });
+        // }
+
+        // ===================== SYSTEM VALUES =====================
+        const usr_id = req.userDtl[0].id;
+        const dateId = await getDateid.getDateID();
+        const cashid = await getTransact.get1Col("la_id", "persons", walletID);
+
+        // ===================== POSTING LOGIC =====================
+        //if (posttype === "CREDIT") {
+        // First Leg – Credit Wallet (Cash Account)
+        //let desc = `Remove from ${walletText} wallet Account to ${AccountName} Account - ${txtDesc}`;
+        let desc = `Other Income to ${walletText} wallet Account`;
+
+        await getTransact.ProcessCheckout(
+          desc,
+          walletID,
+          "CA",
+          0,
+          txtAmount,
+          5,
+          usr_id,
+          5,
+          dateId,
+          0,
+          0,
+          0,
+          transaction,
+        );
+
+        // Second Leg – Debit Customer Ledger
+        desc = txtDesc;
+        const cashidA = await getTransact.get1Col("la_id", "persons", 6);
+        await getTransact.ProcessCheckout(
+          desc,
+          6,
+          "CA",
+          txtAmount,
+          0,
+          6,
+          usr_id,
+          cashidA,
+          dateId,
+          0,
+          0,
+          0,
+          transaction,
+        );
+
+        // }
+
+        // if (posttype === "DEBIT") {
+        //   // First Leg – Debit Wallet (Cash Account)
+        //   let desc = `Return to ${walletText} wallet Account from ${AccountName} Account - ${txtDesc}`;
+
+        //   await getTransact.ProcessCheckout(
+        //     desc,
+        //     walletID,
+        //     "CA",
+        //      0,
+        //     txtAmount,
+
+        //     cashid,
+        //     usr_id,
+        //     walletID,
+        //     dateId,
+        //     0,
+        //     0,
+        //     0
+        //   );
+
+        //   // Second Leg – Credit Customer Ledger
+        //   desc = `Return to ${walletText} wallet Account from ${AccountName} Account - ${txtDesc}`;
+
+        //   await getTransact.ProcessCheckout(
+        //     desc,
+        //     AccountID,
+        //     "CA",
+
+        //     txtAmount,
+        //     0,
+        //     cashid,
+        //     usr_id,
+        //     walletID,
+        //     dateId,
+        //     0,
+        //     0,
+        //     0
+        //   );
+        // }
+
+        await transaction.commit();
+        // ===================== SUCCESS RESPONSE =====================
+        return res.status(200).json({
+          success: true,
+          message: "Successful",
+        });
+      } catch (err) {
+        await transaction.rollback();
+        console.error(err);
+        return res.status(500).json({
           success: false,
-          message: error.details.map((d) => d.message),
+          message: "Server error occurred while processing transaction",
         });
       }
-
-      // ===================== EXTRACT VALIDATED DATA =====================
-      const {
-        walletID,
-        // AccountID,
-        txtAmount,
-        txtDesc,
-        // posttype,
-        //AccountName,
-        walletText,
-      } = value;
-
-      // ===================== BUSINESS RULES =====================
-      // if (walletID === AccountID) {
-      //   return res.status(400).json({
-      //     success: false,
-      //     message: "Wallet and Customer ledger cannot be the same",
-      //   });
-      // }
-
-      // ===================== SYSTEM VALUES =====================
-      const usr_id = req.userDtl[0].id;
-      const dateId = await getDateid.getDateID();
-      const cashid = await getTransact.get1Col("la_id", "persons", walletID);
-
-      // ===================== POSTING LOGIC =====================
-      //if (posttype === "CREDIT") {
-      // First Leg – Credit Wallet (Cash Account)
-      //let desc = `Remove from ${walletText} wallet Account to ${AccountName} Account - ${txtDesc}`;
-      let desc = `Other Income to ${walletText} wallet Account`;
-
-      await getTransact.ProcessCheckout(
-        desc,
-        walletID,
-        "CA",
-        0,
-        txtAmount,
-        5,
-        usr_id,
-        5,
-        dateId,
-        0,
-        0,
-        0,
-      );
-
-      // Second Leg – Debit Customer Ledger
-      desc = txtDesc;
-      const cashidA = await getTransact.get1Col("la_id", "persons", 6);
-      await getTransact.ProcessCheckout(
-        desc,
-        6,
-        "CA",
-        txtAmount,
-        0,
-        6,
-        usr_id,
-        cashidA,
-        dateId,
-        0,
-        0,
-        0,
-      );
-
-      // }
-
-      // if (posttype === "DEBIT") {
-      //   // First Leg – Debit Wallet (Cash Account)
-      //   let desc = `Return to ${walletText} wallet Account from ${AccountName} Account - ${txtDesc}`;
-
-      //   await getTransact.ProcessCheckout(
-      //     desc,
-      //     walletID,
-      //     "CA",
-      //      0,
-      //     txtAmount,
-
-      //     cashid,
-      //     usr_id,
-      //     walletID,
-      //     dateId,
-      //     0,
-      //     0,
-      //     0
-      //   );
-
-      //   // Second Leg – Credit Customer Ledger
-      //   desc = `Return to ${walletText} wallet Account from ${AccountName} Account - ${txtDesc}`;
-
-      //   await getTransact.ProcessCheckout(
-      //     desc,
-      //     AccountID,
-      //     "CA",
-
-      //     txtAmount,
-      //     0,
-      //     cashid,
-      //     usr_id,
-      //     walletID,
-      //     dateId,
-      //     0,
-      //     0,
-      //     0
-      //   );
-      // }
-
-    await  transaction.commit()
-      // ===================== SUCCESS RESPONSE =====================
-      return res.status(200).json({
-        success: true,
-        message: "Successful",
-      });
-    } catch (err) {
-     await transaction.rollback()
-      console.error(err);
-      return res.status(500).json({
-        success: false,
-        message: "Server error occurred while processing transaction",
-      });
-    }
+    });
   },
 );
 
@@ -3584,150 +3624,158 @@ router.post(
   authorizePermission("prev"),
   async (req, res) => {
     const transaction = await sequelize.transaction();
-    try {
-      // ===================== VALIDATION SCHEMA =====================
-      const schema = Joi.object({
-        // walletID: Joi.number()
-        //   .integer()
-        //   .positive()
-        //   .required()
-        //   .messages({
-        //     "number.base": "Payment wallet must be a number",
-        //     "number.positive": "Invalid payment wallet",
-        //     "any.required": "Payment wallet is required",
-        //   }),
+    await getTransact.checkoutWithRetry(async () => {
+      try {
+        // ===================== VALIDATION SCHEMA =====================
+        const schema = Joi.object({
+          // walletID: Joi.number()
+          //   .integer()
+          //   .positive()
+          //   .required()
+          //   .messages({
+          //     "number.base": "Payment wallet must be a number",
+          //     "number.positive": "Invalid payment wallet",
+          //     "any.required": "Payment wallet is required",
+          //   }),
 
-        customerID: Joi.number().integer().positive().required().messages({
-          "number.base": "Customer ID must be a number",
-          "number.positive": "Invalid Customer ID",
-          "any.required": "Customer ID is required",
-        }),
+          customerID: Joi.number().integer().positive().required().messages({
+            "number.base": "Customer ID must be a number",
+            "number.positive": "Invalid Customer ID",
+            "any.required": "Customer ID is required",
+          }),
 
-        txtAmount: Joi.number().positive().required().messages({
-          "number.base": "Amount must be numeric",
-          "number.positive": "Amount must be greater than zero",
-          "any.required": "Amount is required",
-        }),
+          txtAmount: Joi.number().positive().required().messages({
+            "number.base": "Amount must be numeric",
+            "number.positive": "Amount must be greater than zero",
+            "any.required": "Amount is required",
+          }),
 
-        // txtDesc: Joi.string()
-        //   .trim()
-        //   .min(3)
-        //   .required()
-        //   .messages({
-        //     "string.empty": "Description is required",
-        //   }),
+          // txtDesc: Joi.string()
+          //   .trim()
+          //   .min(3)
+          //   .required()
+          //   .messages({
+          //     "string.empty": "Description is required",
+          //   }),
 
-        posttype: Joi.string().valid("CREDIT", "DEBIT").required().messages({
-          "any.only": "Post type must be CREDIT or DEBIT",
-          "any.required": "Post type is required",
-        }),
+          posttype: Joi.string().valid("CREDIT", "DEBIT").required().messages({
+            "any.only": "Post type must be CREDIT or DEBIT",
+            "any.required": "Post type is required",
+          }),
 
-        customerName: Joi.string().trim().required(),
+          customerName: Joi.string().trim().required(),
 
-        // walletText: Joi.string()
-        //   .trim()
-        //   .required(),
-      });
+          // walletText: Joi.string()
+          //   .trim()
+          //   .required(),
+        });
 
-      // ===================== VALIDATE REQUEST =====================
-      const { error, value } = schema.validate(req.body, {
-        abortEarly: false,
-        convert: true,
-        stripUnknown: true,
-      });
+        // ===================== VALIDATE REQUEST =====================
+        const { error, value } = schema.validate(req.body, {
+          abortEarly: false,
+          convert: true,
+          stripUnknown: true,
+        });
 
-      if (error) {
-        return res.status(400).json({
+        if (error) {
+          return res.status(400).json({
+            success: false,
+            message: error.details.map((d) => d.message),
+          });
+        }
+
+        // ===================== EXTRACT VALIDATED DATA =====================
+        const {
+          //walletID,
+          customerID,
+          txtAmount,
+          //txtDesc,
+          posttype,
+          customerName,
+          //walletText,
+        } = value;
+
+        // ===================== BUSINESS RULES =====================
+        // if (walletID === AccountID) {
+        //   return res.status(400).json({
+        //     success: false,
+        //     message: "Wallet and Customer ledger cannot be the same",
+        //   });
+        // }
+
+        // ===================== SYSTEM VALUES =====================
+        const usr_id = req.userDtl[0].id;
+        const dateId = await getDateid.getDateID();
+        const cashid = await getTransact.get1Col(
+          "la_id",
+          "persons",
+          customerID,
+        );
+
+        // ===================== POSTING LOGIC =====================
+        if (posttype === "CREDIT") {
+          // First Leg – Credit Wallet (Cash Account)
+          //let desc = `Remove from ${walletText} wallet Account to ${AccountName} Account - ${txtDesc}`;
+          let desc = `Previous Balance for ${customerName}`;
+
+          await getTransact.ProcessCheckout(
+            desc,
+            customerID,
+            "PA",
+            0,
+            txtAmount,
+            10,
+            usr_id,
+            2,
+            dateId,
+            0,
+            0,
+            0,
+            transaction,
+          );
+        }
+
+        if (posttype === "DEBIT") {
+          // First Leg – Debit Wallet (Cash Account)
+          let desc = `Return to ${customerName} Account `;
+
+          await getTransact.ProcessCheckout(
+            desc,
+            customerID,
+            "PA",
+            txtAmount,
+            0,
+            10,
+            usr_id,
+            2,
+            dateId,
+            0,
+            0,
+            0,
+            transaction,
+          );
+        }
+        await transaction.commit();
+        // ===================== SUCCESS RESPONSE =====================
+        return res.status(200).json({
+          success: true,
+          message: "Successful",
+        });
+      } catch (err) {
+        await transaction.rollback();
+        console.error(err);
+        return res.status(500).json({
           success: false,
-          message: error.details.map((d) => d.message),
+          message: "Server error occurred while processing transaction",
         });
       }
-
-      // ===================== EXTRACT VALIDATED DATA =====================
-      const {
-        //walletID,
-        customerID,
-        txtAmount,
-        //txtDesc,
-        posttype,
-        customerName,
-        //walletText,
-      } = value;
-
-      // ===================== BUSINESS RULES =====================
-      // if (walletID === AccountID) {
-      //   return res.status(400).json({
-      //     success: false,
-      //     message: "Wallet and Customer ledger cannot be the same",
-      //   });
-      // }
-
-      // ===================== SYSTEM VALUES =====================
-      const usr_id = req.userDtl[0].id;
-      const dateId = await getDateid.getDateID();
-      const cashid = await getTransact.get1Col("la_id", "persons", customerID);
-
-      // ===================== POSTING LOGIC =====================
-      if (posttype === "CREDIT") {
-        // First Leg – Credit Wallet (Cash Account)
-        //let desc = `Remove from ${walletText} wallet Account to ${AccountName} Account - ${txtDesc}`;
-        let desc = `Previous Balance for ${customerName}`;
-
-        await getTransact.ProcessCheckout(
-          desc,
-          customerID,
-          "PA",
-          0,
-          txtAmount,
-          10,
-          usr_id,
-          2,
-          dateId,
-          0,
-          0,
-          0,
-        );
-      }
-
-      if (posttype === "DEBIT") {
-        // First Leg – Debit Wallet (Cash Account)
-        let desc = `Return to ${customerName} Account `;
-
-        await getTransact.ProcessCheckout(
-          desc,
-          customerID,
-          "PA",
-          txtAmount,
-          0,
-          10,
-          usr_id,
-          2,
-          dateId,
-          0,
-          0,
-          0,
-        );
-      }
-await transaction.commit()
-      // ===================== SUCCESS RESPONSE =====================
-      return res.status(200).json({
-        success: true,
-        message: "Successful",
-      });
-    } catch (err) {
-      await transaction.rollback()
-      console.error(err);
-      return res.status(500).json({
-        success: false,
-        message: "Server error occurred while processing transaction",
-      });
-    }
+    });
   },
 );
 
 router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
   // console.log(req.body);
-const transaction = await sequelize.transaction();
+  const transaction = await sequelize.transaction();
   const {
     payVia,
     AmtPaid,
@@ -3828,8 +3876,8 @@ const transaction = await sequelize.transaction();
     try {
       // STEP 2: Insert into orders table
       const [insertResult] = await sequelize.query(
-        `INSERT INTO orders (persons_id, invoice_no, order_mode, dates, store, users_id, transact_id)
-              VALUES (?, '0', ?, ?, ?, ?, '0')`,
+        `INSERT INTO orders (persons_id, order_mode, dates, store, users_id, transact_id)
+              VALUES (?, ?, ?, ?, ?, '0')`,
         {
           replacements: [customer.id, orderMode, d, str_id, usr_id],
           type: sequelize.QueryTypes.INSERT,
@@ -3871,6 +3919,7 @@ const transaction = await sequelize.transaction();
           orMax,
           TDsc,
           0,
+          transaction,
         );
 
         await sequelize.query(
@@ -3897,6 +3946,7 @@ const transaction = await sequelize.transaction();
           orMax,
           TDsc,
           0,
+          transaction,
         );
 
         //===========================PAYMENT POST ================================
@@ -3926,6 +3976,7 @@ const transaction = await sequelize.transaction();
             orMax,
             TDsc,
             0,
+            transaction,
           );
 
           await getTransact.ProcessCheckout(
@@ -3941,6 +3992,7 @@ const transaction = await sequelize.transaction();
             orMax,
             TDsc,
             0,
+            transaction,
           );
         }
 
@@ -3982,7 +4034,9 @@ const transaction = await sequelize.transaction();
 
           const orderMode = "Sold";
           const stk_bal = -BaseQty;
-          const qtyBal = Number(item.qbal) - BaseQty;
+          const DBQtyBal = await getTransact.QtyBal(item.id, transaction);
+          const qtyBal = Number(DBQtyBal) - BaseQty;
+          //  const qtyBal = Number(item.qbal) - BaseQty;
           const stkBalVal = -sellp;
 
           //console.log({ Qty, sellp, costp, gain });
@@ -4081,7 +4135,7 @@ const transaction = await sequelize.transaction();
 
 router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
   //console.log(req.body)
-const transaction = await sequelize.transaction();
+  const transaction = await sequelize.transaction();
   const {
     payVia,
     AmtPaid,
@@ -4170,399 +4224,417 @@ const transaction = await sequelize.transaction();
   const d = new Date().toISOString().split("T")[0];
   const dt = new Date();
   const usr_id = req.userDtl[0].id;
-
-  try {
-    // STEP 2: Insert into orders table
-    const [insertResult] = await sequelize.query(
-      `INSERT INTO orders (persons_id, invoice_no, order_mode, dates, store, users_id, transact_id)
+  await getTransact.checkoutWithRetry(async () => {
+    try {
+      // STEP 2: Insert into orders table
+      const [insertResult] = await sequelize.query(
+        `INSERT INTO orders (persons_id, invoice_no, order_mode, dates, store, users_id, transact_id)
        VALUES (?, '0', ?, ?, ?, ?, '0')`,
-      {
-        replacements: [customer.id, orderMode, d, str_id, usr_id],
-        type: sequelize.QueryTypes.INSERT, transaction
-      },
-    );
-
-    const orMax = insertResult; // Inserted order ID
-
-    // STEP 3: Update invoice number
-    const inv_no = 12000 + Number(orMax);
-
-    await sequelize.query(`UPDATE orders SET invoice_no = ? WHERE id = ?`, {
-      replacements: [inv_no, orMax],
-      type: sequelize.QueryTypes.UPDATE, transaction
-    });
-
-    if (CartType === "RETURNIN") {
-      //     $typez ="RECEIPT";
-      //==================== First Leg =====================
-      let desc = `Return Goods From ${customer.full_name} `;
-      let ca_id = 0;
-
-      //const  penalty = addbal * cost;
-      const dateId = await getDateid.getDateID();
-
-      await getTransact.ProcessCheckout(
-        desc,
-        customer.id,
-        "PA",
-        TAmtPayable,
-        0,
-        0,
-        usr_id,
-        3,
-        dateId,
-        orMax,
-        TDsc,
-        0,
+        {
+          replacements: [customer.id, orderMode, d, str_id, usr_id],
+          type: sequelize.QueryTypes.INSERT,
+          transaction,
+        },
       );
 
-      desc = `RI Ledger Credited For ${customer.full_name}`;
+      const orMax = insertResult; // Inserted order ID
 
-      await getTransact.ProcessCheckout(
-        desc,
-        3,
-        "CA",
-        0,
-        TAmtPayable,
-        0,
-        usr_id,
-        3,
-        dateId,
-        orMax,
-        TDsc,
-        0,
-      );
-      
-      const sortedCart = [...cart].sort((a, b) => a.id - b.id);
-      for (let item of sortedCart) {
-        let QtyType = item.prdtType;
+      // STEP 3: Update invoice number
+      const inv_no = 12000 + Number(orMax);
 
-        const selectedUnit = item.units.find(
-          (u) => u.unit_measure === QtyType.toUpperCase(),
+      await sequelize.query(`UPDATE orders SET invoice_no = ? WHERE id = ?`, {
+        replacements: [inv_no, orMax],
+        type: sequelize.QueryTypes.UPDATE,
+        transaction,
+      });
+
+      if (CartType === "RETURNIN") {
+        //     $typez ="RECEIPT";
+        //==================== First Leg =====================
+        let desc = `Return Goods From ${customer.full_name} `;
+        let ca_id = 0;
+
+        //const  penalty = addbal * cost;
+        const dateId = await getDateid.getDateID();
+
+        await getTransact.ProcessCheckout(
+          desc,
+          customer.id,
+          "PA",
+          TAmtPayable,
+          0,
+          0,
+          usr_id,
+          3,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+          transaction,
         );
 
-        if (!selectedUnit) {
-          // console.log("Unit not found for", item.product_name);
-          continue;
-        }
+        desc = `RI Ledger Credited For ${customer.full_name}`;
 
-        let BaseQty = Number(item.qty * item.unitsInSelected);
-        let Qty = Number(item.qty);
-        const costPrice = Number(selectedUnit.costprice);
-        const unit_price = Number(selectedUnit.unitprice);
-        const sellPrice = Number(item.price);
-        const discount = Number(item.discount) || 0;
+        await getTransact.ProcessCheckout(
+          desc,
+          3,
+          "CA",
+          0,
+          TAmtPayable,
+          0,
+          usr_id,
+          3,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+          transaction,
+        );
 
-        let sellp = 0;
-        sellp = Qty * sellPrice;
+        const sortedCart = [...cart].sort((a, b) => a.id - b.id);
+        for (let item of sortedCart) {
+          let QtyType = item.prdtType;
 
-        // Calculations (always use normalized Qty)
-        const costp = Qty * costPrice;
+          const selectedUnit = item.units.find(
+            (u) => u.unit_measure === QtyType.toUpperCase(),
+          );
 
-        let gain = sellp - costp;
+          if (!selectedUnit) {
+            // console.log("Unit not found for", item.product_name);
+            continue;
+          }
 
-        let qty_bal = 0;
-        // let costp = Number( item.qty * item.cost_price);
-        // sellp = Number( item.qty * item.price);
-        // let gain = sellp - costp;
-        let orderMode = "Returnin";
-        let stk_bal = BaseQty;
-        const qtyBal = Number(item.qbal) + BaseQty;
-        gain = -1 * gain;
-        let stkBalVal = -sellp;
+          let BaseQty = Number(item.qty * item.unitsInSelected);
+          let Qty = Number(item.qty);
+          const costPrice = Number(selectedUnit.costprice);
+          const unit_price = Number(selectedUnit.unitprice);
+          const sellPrice = Number(item.price);
+          const discount = Number(item.discount) || 0;
 
-        const [insertDetail] = await sequelize.query(
-          `INSERT INTO order_details (
+          let sellp = 0;
+          sellp = Qty * sellPrice;
+
+          // Calculations (always use normalized Qty)
+          const costp = Qty * costPrice;
+
+          let gain = sellp - costp;
+
+          let qty_bal = 0;
+          // let costp = Number( item.qty * item.cost_price);
+          // sellp = Number( item.qty * item.price);
+          // let gain = sellp - costp;
+          let orderMode = "Returnin";
+          let stk_bal = BaseQty;
+          const DBQtyBal = await getTransact.QtyBal(item.id, transaction);
+          const qtyBal = Number(DBQtyBal) + BaseQty;
+         // const qtyBal = Number(item.qbal) + BaseQty;
+          gain = -1 * gain;
+          let stkBalVal = -sellp;
+
+          const [insertDetail] = await sequelize.query(
+            `INSERT INTO order_details (
                     orders_id, product_id, quantity, sales_price, discount, total_line, gain,
                     unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
                     vats_amount, date_time, total_costline, manifacture_date, expire_date,
                     commisn_amt, stock_bal_value,qty_type
                   )
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
-          {
-            replacements: [
-              orMax, // orders_id
-              item.id, // product_id
-              item.qty, // quantity
-              item.price, // sales_price
-              item.discount, // discount
-              sellp, // total_line
-              gain, // gain
-              unit_price, // unit_price
-              dateId, // time_id
-              1, // basket_count (fixed)
-              d, // dated
-              orderMode, // order_mode
-              stk_bal, // stock_bal
-              qtyBal, // qty_bal (fixed)
-              0, // vats_amount
-              dt, // date_time
-              costp, // total_costline
-              0, // manifacture_date
-              0, // expire_date
-              0, // commisn_amt
-              stkBalVal, // stock_bal_value
-              QtyType, // stock_bal_value
-            ],
-            type: sequelize.QueryTypes.INSERT,
-          },
-        );
-      }
-    }
-
-    if (CartType === "RETURNOUT") {
-      //     $typez ="RECEIPT";
-      //==================== First Leg =====================
-      let desc = `Return Goods To ${customer.full_name} `;
-      let ca_id = 0;
-
-      //const  penalty = addbal * cost;
-      const dateId = await getDateid.getDateID();
-
-      await getTransact.ProcessCheckout(
-        desc,
-        customer.id,
-        "PA",
-        0,
-        TAmtPayable,
-        0,
-        usr_id,
-        4,
-        dateId,
-        orMax,
-        TDsc,
-        0,
-      );
-
-      desc = `RO Ledger Debited For ${customer.full_name}`;
-
-      await getTransact.ProcessCheckout(
-        desc,
-        4,
-        "CA",
-        TAmtPayable,
-        0,
-        0,
-        usr_id,
-        4,
-        dateId,
-        orMax,
-        TDsc,
-        0,
-      );
-
-      // for (let item of AllPays) {
-      //     //console.log(item.AmtPaid);
-      //     //AmtPaid = Number(item.AmtPaid);
-
-      //    const cashid = await getTransact.get1Col("la_id","persons",item.payVia);
-      //     let desc = `Cash Paid By ${customer.full_name} Via ${item.payViaText}`;
-      //     let TDsc =0;
-
-      //     await getTransact.ProcessCheckout(desc, 0, "CA",  0, Number(item.AmtPaid), cashid, usr_id, cashid, dateId, 0,TDsc,0);
-
-      //      await getTransact.ProcessCheckout(desc, customer.id, "PA",  Number(item.AmtPaid), 0, 0, usr_id, cashid, dateId, 0,TDsc,0);
-
-      //   }
-    const sortedCart = [...cart].sort((a, b) => a.id - b.id);
-      for (let item of sortedCart) {
-        let QtyType = item.prdtType;
-
-        const selectedUnit = item.units.find(
-          (u) => u.unit_measure === QtyType.toUpperCase(),
-        );
-
-        if (!selectedUnit) {
-          //console.log("Unit not found for", item.product_name);
-          continue;
+            {
+              replacements: [
+                orMax, // orders_id
+                item.id, // product_id
+                item.qty, // quantity
+                item.price, // sales_price
+                item.discount, // discount
+                sellp, // total_line
+                gain, // gain
+                unit_price, // unit_price
+                dateId, // time_id
+                1, // basket_count (fixed)
+                d, // dated
+                orderMode, // order_mode
+                stk_bal, // stock_bal
+                qtyBal, // qty_bal (fixed)
+                0, // vats_amount
+                dt, // date_time
+                costp, // total_costline
+                0, // manifacture_date
+                0, // expire_date
+                0, // commisn_amt
+                stkBalVal, // stock_bal_value
+                QtyType, // stock_bal_value
+              ],
+              type: sequelize.QueryTypes.INSERT,
+              transaction,
+            },
+          );
         }
+      }
 
-        let BaseQty = Number(item.qty * item.unitsInSelected);
-        let Qty = Number(item.qty);
-        const costPrice = Number(selectedUnit.costprice);
-        const unit_price = Number(selectedUnit.unitprice);
-        const sellPrice = Number(item.price);
-        const discount = Number(item.discount) || 0;
+      if (CartType === "RETURNOUT") {
+        //     $typez ="RECEIPT";
+        //==================== First Leg =====================
+        let desc = `Return Goods To ${customer.full_name} `;
+        let ca_id = 0;
 
-        let sellp = 0;
-        let costp = 0;
-        sellp = Qty * sellPrice;
-        costp = Qty * costPrice;
+        //const  penalty = addbal * cost;
+        const dateId = await getDateid.getDateID();
 
-        //let gain = sellp - costp;
-        let gain = 0;
-        let orderMode = "Returnout";
-        let stk_bal = -BaseQty;
-        let qtyBal = Number(item.qbal - BaseQty);
-        let stkBalVal = -sellp;
+        await getTransact.ProcessCheckout(
+          desc,
+          customer.id,
+          "PA",
+          0,
+          TAmtPayable,
+          0,
+          usr_id,
+          4,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+          transaction,
+        );
 
-        //========================
+        desc = `RO Ledger Debited For ${customer.full_name}`;
 
-        const [insertDetail] = await sequelize.query(
-          `INSERT INTO order_details (
+        await getTransact.ProcessCheckout(
+          desc,
+          4,
+          "CA",
+          TAmtPayable,
+          0,
+          0,
+          usr_id,
+          4,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+          transaction,
+        );
+
+        // for (let item of AllPays) {
+        //     //console.log(item.AmtPaid);
+        //     //AmtPaid = Number(item.AmtPaid);
+
+        //    const cashid = await getTransact.get1Col("la_id","persons",item.payVia);
+        //     let desc = `Cash Paid By ${customer.full_name} Via ${item.payViaText}`;
+        //     let TDsc =0;
+
+        //     await getTransact.ProcessCheckout(desc, 0, "CA",  0, Number(item.AmtPaid), cashid, usr_id, cashid, dateId, 0,TDsc,0);
+
+        //      await getTransact.ProcessCheckout(desc, customer.id, "PA",  Number(item.AmtPaid), 0, 0, usr_id, cashid, dateId, 0,TDsc,0);
+
+        //   }
+        const sortedCart = [...cart].sort((a, b) => a.id - b.id);
+        for (let item of sortedCart) {
+          let QtyType = item.prdtType;
+
+          const selectedUnit = item.units.find(
+            (u) => u.unit_measure === QtyType.toUpperCase(),
+          );
+
+          if (!selectedUnit) {
+            //console.log("Unit not found for", item.product_name);
+            continue;
+          }
+
+          let BaseQty = Number(item.qty * item.unitsInSelected);
+          let Qty = Number(item.qty);
+          const costPrice = Number(selectedUnit.costprice);
+          const unit_price = Number(selectedUnit.unitprice);
+          const sellPrice = Number(item.price);
+          const discount = Number(item.discount) || 0;
+
+          let sellp = 0;
+          let costp = 0;
+          sellp = Qty * sellPrice;
+          costp = Qty * costPrice;
+
+          //let gain = sellp - costp;
+          let gain = 0;
+          let orderMode = "Returnout";
+          let stk_bal = -BaseQty;
+          const DBQtyBal = await getTransact.QtyBal(item.id, transaction);
+          const qtyBal = Number(DBQtyBal) - BaseQty;
+          //let qtyBal = Number(item.qbal - BaseQty);
+          let stkBalVal = -sellp;
+
+          //========================
+
+          const [insertDetail] = await sequelize.query(
+            `INSERT INTO order_details (
                     orders_id, product_id, quantity, sales_price, discount, total_line, gain,
                     unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
                     vats_amount, date_time, total_costline, manifacture_date, expire_date,
                     commisn_amt, stock_bal_value,qty_type
                   )
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
-          {
-            replacements: [
-              orMax, // orders_id
-              item.id, // product_id
-              item.qty, // quantity
-              item.price, // sales_price
-              item.discount, // discount
-              sellp, // total_line
-              gain, // gain
-              unit_price, // unit_price
-              dateId, // time_id
-              1, // basket_count (fixed)
-              d, // dated
-              orderMode, // order_mode
-              stk_bal, // stock_bal
-              qtyBal, // qty_bal (fixed)
-              0, // vats_amount
-              dt, // date_time
-              costp, // total_costline
-              0, // manifacture_date
-              0, // expire_date
-              0, // commisn_amt
-              stkBalVal, // stock_bal_value
-              QtyType, // stock_bal_value
-            ],
-            type: sequelize.QueryTypes.INSERT,
-          },
-        );
-      }
-    }
-
-    if (CartType === "SUPPLIERS") {
-      //     $typez ="RECEIPT";
-      //==================== First Leg =====================
-      let desc = `Bought From  ${customer.full_name} `;
-      let ca_id = 0;
-
-      //const  penalty = addbal * cost;
-      const dateId = await getDateid.getDateID();
-
-      await getTransact.ProcessCheckout(
-        desc,
-        customer.id,
-        "PA",
-        TAmtPayable,
-        0,
-        0,
-        usr_id,
-        1,
-        dateId,
-        orMax,
-        TDsc,
-        0,
-      );
-
-      desc = `Puchase Ledger Credited For ${customer.full_name}`;
-
-      await getTransact.ProcessCheckout(
-        desc,
-        1,
-        "CA",
-        0,
-        TAmtPayable,
-        0,
-        usr_id,
-        1,
-        dateId,
-        orMax,
-        TDsc,
-        0,
-      );
-
-    const sortedCart = [...cart].sort((a, b) => a.id - b.id);
-      for (let item of sortedCart) {
-        let QtyType = item.prdtType;
-
-        const selectedUnit = item.units.find(
-          (u) => u.unit_measure === QtyType.toUpperCase(),
-        );
-
-        if (!selectedUnit) {
-          // console.log("Unit not found for", item.product_name);
-          continue;
+            {
+              replacements: [
+                orMax, // orders_id
+                item.id, // product_id
+                item.qty, // quantity
+                item.price, // sales_price
+                item.discount, // discount
+                sellp, // total_line
+                gain, // gain
+                unit_price, // unit_price
+                dateId, // time_id
+                1, // basket_count (fixed)
+                d, // dated
+                orderMode, // order_mode
+                stk_bal, // stock_bal
+                qtyBal, // qty_bal (fixed)
+                0, // vats_amount
+                dt, // date_time
+                costp, // total_costline
+                0, // manifacture_date
+                0, // expire_date
+                0, // commisn_amt
+                stkBalVal, // stock_bal_value
+                QtyType, // stock_bal_value
+              ],
+              type: sequelize.QueryTypes.INSERT,
+              transaction,
+            },
+          );
         }
+      }
 
-        let BaseQty = Number(item.qty * item.unitsInSelected);
-        let Qty = Number(item.qty);
-        const costPrice = Number(selectedUnit.costprice);
-        const unit_price = Number(selectedUnit.unitprice);
-        const sellPrice = Number(item.price);
-        const discount = Number(item.discount) || 0;
+      if (CartType === "SUPPLIERS") {
+        //     $typez ="RECEIPT";
+        //==================== First Leg =====================
+        let desc = `Bought From  ${customer.full_name} `;
+        let ca_id = 0;
 
-        let sellp = 0;
-        let costp = 0;
-        sellp = Qty * sellPrice;
-        costp = Qty * costPrice;
+        //const  penalty = addbal * cost;
+        const dateId = await getDateid.getDateID();
 
-        let gain = sellp - costp;
-        let orderMode = "Bought";
-        let stk_bal = BaseQty;
-        let qtyBal = Number(item.qbal) + BaseQty;
-        let stkBalVal = sellp;
+        await getTransact.ProcessCheckout(
+          desc,
+          customer.id,
+          "PA",
+          TAmtPayable,
+          0,
+          0,
+          usr_id,
+          1,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+          transaction,
+        );
 
-        const [insertDetail] = await sequelize.query(
-          `INSERT INTO order_details (
+        desc = `Puchase Ledger Credited For ${customer.full_name}`;
+
+        await getTransact.ProcessCheckout(
+          desc,
+          1,
+          "CA",
+          0,
+          TAmtPayable,
+          0,
+          usr_id,
+          1,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+          transaction,
+        );
+
+        const sortedCart = [...cart].sort((a, b) => a.id - b.id);
+        for (let item of sortedCart) {
+          let QtyType = item.prdtType;
+
+          const selectedUnit = item.units.find(
+            (u) => u.unit_measure === QtyType.toUpperCase(),
+          );
+
+          if (!selectedUnit) {
+            // console.log("Unit not found for", item.product_name);
+            continue;
+          }
+
+          let BaseQty = Number(item.qty * item.unitsInSelected);
+          let Qty = Number(item.qty);
+          const costPrice = Number(selectedUnit.costprice);
+          const unit_price = Number(selectedUnit.unitprice);
+          const sellPrice = Number(item.price);
+          const discount = Number(item.discount) || 0;
+
+          let sellp = 0;
+          let costp = 0;
+          sellp = Qty * sellPrice;
+          costp = Qty * costPrice;
+
+          let gain = sellp - costp;
+          let orderMode = "Bought";
+          let stk_bal = BaseQty;
+          const DBQtyBal = await getTransact.QtyBal(item.id, transaction);
+          const qtyBal = Number(DBQtyBal) + BaseQty;
+          //let qtyBal = Number(item.qbal) + BaseQty;
+          let stkBalVal = sellp;
+
+          const [insertDetail] = await sequelize.query(
+            `INSERT INTO order_details (
                     orders_id, product_id, quantity, sales_price, discount, total_line, gain,
                     unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
                     vats_amount, date_time, total_costline, manifacture_date, expire_date,
                     commisn_amt, stock_bal_value,qty_type
                   )
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
-          {
-            replacements: [
-              orMax, // orders_id
-              item.id, // product_id
-              item.qty, // quantity
-              item.price, // sales_price
-              item.discount, // discount
-              sellp, // total_line
-              gain, // gain
-              unit_price, // unit_price
-              dateId, // time_id
-              1, // basket_count (fixed)
-              d, // dated
-              orderMode, // order_mode
-              stk_bal, // stock_bal
-              qtyBal, // qty_bal (fixed)
-              0, // vats_amount
-              dt, // date_time
-              costp, // total_costline
-              0, // manifacture_date
-              0, // expire_date
-              0, // commisn_amt
-              stkBalVal, // stock_bal_value
-              QtyType, // stock_bal_value
-            ],
-            type: sequelize.QueryTypes.INSERT,
-          },
-        );
+            {
+              replacements: [
+                orMax, // orders_id
+                item.id, // product_id
+                item.qty, // quantity
+                item.price, // sales_price
+                item.discount, // discount
+                sellp, // total_line
+                gain, // gain
+                unit_price, // unit_price
+                dateId, // time_id
+                1, // basket_count (fixed)
+                d, // dated
+                orderMode, // order_mode
+                stk_bal, // stock_bal
+                qtyBal, // qty_bal (fixed)
+                0, // vats_amount
+                dt, // date_time
+                costp, // total_costline
+                0, // manifacture_date
+                0, // expire_date
+                0, // commisn_amt
+                stkBalVal, // stock_bal_value
+                QtyType, // stock_bal_value
+              ],
+              type: sequelize.QueryTypes.INSERT,
+              transaction,
+            },
+          );
+        }
       }
+      await transaction.commit();
+      return res.status(200).json({
+        success: true,
+        message: "Successfull",
+        // order_id: orMax,
+        // invoice_no: inv_no
+      });
+    } catch (error) {
+      await transaction.rollback();
+      // console.error(error);
+      return res.status(500).json({
+        success: false,
+        message: "Error creating order",
+        error: error.message,
+      });
     }
-    await transaction.commit()
-    return res.status(200).json({
-      success: true,
-      message: "Successfull",
-      // order_id: orMax,
-      // invoice_no: inv_no
-    });
-  } catch (error) {
-    await transaction.rollback()
-    // console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: "Error creating order",
-      error: error.message,
-    });
-  }
+  });
 });
 
 router.get(

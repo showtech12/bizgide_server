@@ -11,11 +11,14 @@ const UpldVeri = require("../../shared/uploadVerify");
 const idNumControl = require("../../shared/idNumberControl");
 //const basicAuth = require("../shared/basicAuth");
 const authorizePermission = require("../auth_role.js");
+const getTransact = require("../../shared/getTrans.js");
 
 const sequelize = require("../../config/database");
 
-router.post("/api/v1/settings", verifyAdmin, async (req, res, next) => {
+router.post("/api/v1/settings", verifyAdmin, authorizePermission("settings"), async (req, res, next) => {
   const transaction = await sequelize.transaction();
+  //await getTransact.checkoutWithRetry
+   await getTransact.checkoutWithRetry(async () => {
   try {
     //console.log(req.body);
 
@@ -96,12 +99,13 @@ await transaction.commit()
       message: "Server error",
     });
   }
+})
 });
 
 router.get(
   "/api/v1/settings",
   verifyAdmin,
-  authorizePermission("settings"),
+ // authorizePermission("settings"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
 

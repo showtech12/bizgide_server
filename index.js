@@ -6,6 +6,9 @@ const UsersRouter = require("./admin/users/users.routes");
 const Products = require("./admin/products/products.routes");
 const Orders = require("./admin/order/orders.routes");
 const AuthRouter = require("./admin/auth/auth.routes");
+const BizAdminAth = require("./src/auth/auth.routes");
+const BizAdminClients = require("./src/clientreg/client.routes");
+const BizAdminUser = require("./src/users/user.routes");
 const BackupRouter = require("./admin/backup/backup.routes");
 const SettingsRouter = require("./admin/settings/settings.routes");
 
@@ -25,7 +28,8 @@ express.urlencoded();
 const allowedOrigins = [
  "https://app.bizgide.com",
  'http://localhost:5173',
- 'http://localhost:5174'
+ 'http://localhost:5174',
+ 'http://localhost:5175',
   
 ];
 
@@ -70,6 +74,9 @@ app.use(express.json());
 app.use(Products);
 app.use(UsersRouter);
 app.use(Orders);
+app.use(BizAdminAth);
+app.use(BizAdminClients);
+app.use(BizAdminUser);
 app.use(AuthRouter);
 app.use(BackupRouter);
 app.use(SettingsRouter);

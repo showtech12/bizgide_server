@@ -1,4 +1,5 @@
 const sequelize = require("../config/database");
+
 const ProcessTransact = async (
   desc1,
   prs_ID1,
@@ -10,6 +11,7 @@ const ProcessTransact = async (
   lgrID,
   date_Id,
   OrdID,
+  transaction
 ) => {
   // console.log(desc1 + " "+ prs_ID1 +" " +Atype1 + " "+Crdtamt1+" "+DbtAmt1+" "+ca_id+" "+Usr_id+" "+lgrID+" "+" "+date_Id+" "+OrdID )
 
@@ -62,12 +64,13 @@ const ProcessTransact = async (
           Ord_ID,
         ],
         type: sequelize.QueryTypes.INSERT,
+        transaction
       },
     );
 
     let ResMAxID = await sequelize.query(
       `SELECT MAX(id) AS id FROM transactions`,
-      { type: sequelize.QueryTypes.SELECT },
+      { type: sequelize.QueryTypes.SELECT,transaction },
     );
 
     var maxID = Number(ResMAxID[0].id);
@@ -77,7 +80,7 @@ const ProcessTransact = async (
 
     await sequelize.query(
       `UPDATE transactions SET trans_id ='${TrandID}' WHERE id ='${maxID}'`,
-      { type: sequelize.QueryTypes.UPDATE },
+      { type: sequelize.QueryTypes.UPDATE,transaction },
     );
 
     return TrandID;
@@ -113,6 +116,7 @@ const ProcessTransact = async (
     //     message: "Transaction processed successfully",
     //   });
   } catch (error) {
+    await transaction.rollback();
     console.error("Error processing transaction:", error);
     return error;
     // res.status(500).json({
@@ -123,17 +127,25 @@ const ProcessTransact = async (
   }
 };
 
-const getStockBal = async (prdtid, str_id) => {
+const getStockBal = async (prdtid, str_id, transaction) => {
   try {
-    const result = await sequelize.query(
-      `SELECT SUM(stock_bal) AS sbal FROM order_details d, orders o   WHERE d.product_id = ? AND d.orders_id = o.id AND o.store=?`,
+    const [result] = await sequelize.query(
+      `
+      SELECT COALESCE(SUM(d.stock_bal), 0) AS sbal
+      FROM order_details d
+      INNER JOIN orders o ON d.orders_id = o.id
+      WHERE d.product_id = ?
+        AND o.store = ?
+      FOR UPDATE
+      `,
       {
         replacements: [prdtid, str_id],
         type: sequelize.QueryTypes.SELECT,
-      },
+        transaction,
+      }
     );
 
-    return result[0].sbal;
+    return Number(result.sbal);
   } catch (error) {
     console.error("Error fetching stock balance:", error);
     throw error;
@@ -182,13 +194,15 @@ const ProcessCheckout = async (
   OrdID,
   Tdsc,
   Tvat,
+  transaction
+  
 ) => {
   // console.log(desc1 + " "+ prs_ID1 +" " +Atype1 + " "+Crdtamt1+" "+DbtAmt1+" "+ca_id+" "+Usr_id+" "+lgrID+" "+" "+date_Id+" "+OrdID )
 
   let retries = 3;
 
   while (retries > 0) {
-    const transaction = await sequelize.transaction();
+    //const transaction = await sequelize.transaction();
 
     //const transaction = await sequelize.transaction();
 
@@ -278,12 +292,12 @@ const ProcessCheckout = async (
         },
       );
 
-      await transaction.commit();
+      //await transaction.commit();
 
       return insertId;
     } catch (err) {
       console.log(err);
-      // await transaction.rollback();
+       await transaction.rollback();
 
       if (err.original?.code === "ER_LOCK_DEADLOCK") {
         retries--;
@@ -364,6 +378,25 @@ const ProcessCheckout = async (
   // }
 };
 
+const QtyBal = async (prdtID, transaction) => {
+  const [QBal] = await sequelize.query(
+        `
+       SELECT SUM(stock_bal) AS qtyBal
+        FROM order_details
+        WHERE product_id = ?
+        FOR UPDATE
+        `,
+    {
+      replacements: [prdtID],
+      type: sequelize.QueryTypes.SELECT,
+      transaction,
+    },
+  );
+  const BalQty = QBal.qtyBal;
+  //console.log(BalQty)
+  return BalQty;
+};
+
 const checkoutWithRetry = async (fn, retries = 3) => {
   //let retries = 3;
 
@@ -396,4 +429,5 @@ module.exports = {
   ProcessCheckout,
   get1Col,
   checkoutWithRetry,
+  QtyBal,
 };

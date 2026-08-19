@@ -68,6 +68,7 @@ ON order_details (product_id, dated, id);
 ALTER TABLE orders
 ADD UNIQUE (invoice_no);
 
+ Warning: #1831 Duplicate index 'invoice_no' defined on the table 'bizgidedbz.orders'. This is deprecated and will be disallowed in a future release.
 //======================================================
 
 router.post("/checkout", async (req, res) => {

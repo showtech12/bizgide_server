@@ -530,7 +530,7 @@ router.get(
 router.get(
   "/api/v1/expirenotify",
   verifyAdmin,
-  // authorizePermission("ADMIN", "CASHIER"),
+   //authorizePermission("products"),
   async (req, res) => {
     const perct_value = Number(req.query.pv);
 

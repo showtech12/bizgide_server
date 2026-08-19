@@ -29,6 +29,12 @@ User.init(
     position: {
       type: DataTypes.STRING,
     },
+    client_reg_no: {
+      type: DataTypes.STRING,
+    },
+    client_id: {
+      type: DataTypes.INTEGER,
+    },
     role_id: {
       type: DataTypes.STRING,
     },

@@ -54,18 +54,16 @@ router.post("/api/v1/auth/login", async (req, res) => {
             INNER JOIN tblrole r 
                 ON u.role_id = r.id
             WHERE 
-                u.email = :email 
-               
-                AND u.acct_type = 'STAFF';`,
+                u.email = :email;`,
       {
         replacements: { email: txtEmail1, password: txtPass1 },
         type: sequelize.QueryTypes.SELECT,
       },
     );
-
+    console.log(results)
     if (results.length > 0) {
       const user = results[0];
-      // console.log(user)
+       console.log(user)
 
       // Check if the password matches (assuming you hash passwords on registration)
       // const passwordMatch = await bcryptjs.compare(txtPass, user.PassWord);
@@ -79,26 +77,35 @@ router.post("/api/v1/auth/login", async (req, res) => {
       // Check if the password matches (assuming you hash passwords on registration)
       //const passwordMatch = await bcryptjs.compare(txtPass, user.PassWord);
       if (user.PassWord !== txtPass1) {
-          return res.status(401).json({
-              success: false,
-              message: "Invalid Login Details"
-          });
+        return res.status(401).json({
+          success: false,
+          message: "Invalid Login Details",
+        });
       }
 
       const adminID = user.id;
       // console.log(agtID)
-      const adminToken = jwt.sign({ id: adminID }, process.env.JWT_SECRET, {
-        expiresIn: "8h",
-      });
+      const adminToken = jwt.sign(
+        { id: adminID, role_id: user.role_id, auth_type: "BizAPP" },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: "5h",
+        },
+      );
 
       let options = {
         maxAge: 30 * 60 * 1000, // 30 minutes
         httpOnly: true,
         secure: true,
         sameSite: "None",
+
+        // httpOnly: true,
+        // secure: process.env.NODE_ENV === "production",
+        // sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+        // maxAge: 8 * 60 * 60 * 1000,
       };
 
-      res.cookie("ACCU_SOFTiD", adminToken, options);
+      res.cookie("BIZG_SOFTiD", adminToken, options);
 
       return res.status(200).json({
         success: true,

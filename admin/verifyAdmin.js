@@ -23,6 +23,13 @@ module.exports = async (req, res, next) => {
 
     //let userD = "";
 
+    if (decoded.auth_type !== "BizAPP") {
+      return res.status(403).json({
+        success: false,
+        message: "User authentication required",
+      });
+    }
+
     const userD = await sequelize.query(
       `SELECT 
                     u.*,
@@ -80,8 +87,7 @@ module.exports = async (req, res, next) => {
 function getToken(req) {
   //console.log(req)
   return (
-    req.cookies.MySessionIDCREDITOR ||
-    req.cookies.MySessionIDCool ||
+    req.cookies.BIZG_SOFTiD ||
     req.headers["authorization"]?.split(" ")[1] ||
     req.headers["Authorization-Creditor"]?.split(" ")[1]
   );
