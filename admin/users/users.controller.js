@@ -70,12 +70,12 @@ const getAllAgents = async (mypages) => {
   };
 };
 
-const getAllUsers = async (mypages) => {
+const getAllUsers = async (mypages,clientID) => {
   const { page, size } = mypages;
   const usersWithCount = await user.findAndCountAll({
     limit: size,
     offset: page * size,
-    where:{"acct_type":"STAFF"},
+    where:{"acct_type":"STAFF","client_id":clientID},
     attributes: { exclude: ["createdAt", "Token"] },
     order: [
       ['id','DESC']

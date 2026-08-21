@@ -30,6 +30,8 @@ const { fn } = require("sequelize");
 
 router.get("/api/v1/posproduct", verifyAdmin, async (req, res) => {
   //console.log(req.userDtl[0].id)
+  //console.log(req.userDtl[0].client_id);
+  const client_id = req.userDtl[0].client_id;
   // const transaction = await sequelize.transaction();
 
   //  SELECT
@@ -110,6 +112,8 @@ router.get("/api/v1/posproduct", verifyAdmin, async (req, res) => {
             ) u
             ON u.product_id = p.id
 
+            WHERE p.clt_id = '${client_id}'
+
             ORDER BY p.product_name;
            
           `;
@@ -139,6 +143,7 @@ router.get("/api/v1/posproduct", verifyAdmin, async (req, res) => {
 
 router.get("/api/v1/poscustomer", verifyAdmin, async (req, res) => {
   //console.log(req.userDtl[0].id)
+  const client_id = req.userDtl[0].client_id;
   let cusType = req.query.cusType;
   let qry = ``;
   if (cusType == "ALL") {
@@ -151,7 +156,7 @@ router.get("/api/v1/poscustomer", verifyAdmin, async (req, res) => {
           FROM persons p
           LEFT JOIN transactions t
               ON t.personid = p.id
-          WHERE p.flg = 'SHOW' AND contact_type !='SUBSIDIARY'
+          WHERE p.flg = 'SHOW' AND contact_type !='SUBSIDIARY' AND p.clt_id = '${client_id}'
           GROUP BY
               p.id,
               p.full_name,
@@ -168,13 +173,15 @@ router.get("/api/v1/poscustomer", verifyAdmin, async (req, res) => {
           LEFT JOIN transactions t 
               ON t.personid = p.id
           WHERE p.flg = 'SHOW'
-            AND p.contact_type = '${`${cusType}`}' AND p.contact_type !='SUBSIDIARY'
+            AND p.contact_type = '${`${cusType}`}' AND p.contact_type !='SUBSIDIARY' AND p.clt_id = '${client_id}'
           GROUP BY 
               p.id, 
               p.full_name, 
               p.phone_no, 
               p.act_no;`;
   }
+
+  //console.log(qry)
 
   try {
     sequelize
@@ -213,10 +220,11 @@ router.get(
   authorizePermission("expenses"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
+    const client_id = req.userDtl[0].client_id;
     let cusType = req.query.cusType;
     let qry = ``;
 
-    qry = `SELECT id, full_name FROM persons WHERE la_id IN (7) and ptype='CA' ORDER BY la_id `;
+    qry = `SELECT id, full_name FROM persons WHERE la_id IN (7) and ptype='CA' AND clt_id='${client_id}' ORDER BY la_id `;
 
     try {
       sequelize
@@ -256,10 +264,11 @@ router.get(
   authorizePermission("capital"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
+    const client_id = req.userDtl[0].client_id;
     let cusType = req.query.cusType;
     let qry = ``;
 
-    qry = `SELECT id, full_name FROM persons WHERE la_id IN (13) ORDER BY la_id `;
+    qry = `SELECT id, full_name FROM persons WHERE la_id IN (13)  AND clt_id='${client_id}' ORDER BY la_id `;
 
     try {
       sequelize
@@ -299,10 +308,11 @@ router.get(
   authorizePermission("cashbook"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
+    const client_id = req.userDtl[0].client_id;
     let cusType = req.query.cusType;
     let qry = ``;
 
-    qry = `SELECT id, full_name FROM persons WHERE la_id IN (5) ORDER BY la_id `;
+    qry = `SELECT id, full_name FROM persons WHERE clt_id='${client_id}' AND la_id IN (5) ORDER BY la_id `;
 
     try {
       sequelize
@@ -338,11 +348,11 @@ router.get(
 
 router.get("/api/v1/wallets", verifyAdmin, async (req, res) => {
   //console.log(req.userDtl[0].id)
-
+  const client_id = req.userDtl[0].client_id;
   try {
     sequelize
       .query(
-        `SELECT id, full_name FROM persons WHERE la_id IN (5,6) ORDER BY la_id `,
+        `SELECT id, full_name FROM persons WHERE clt_id='${client_id}' AND la_id IN (5,6) ORDER BY la_id `,
         { type: sequelize.QueryTypes.SELECT },
       )
 
@@ -378,11 +388,11 @@ router.get(
   authorizePermission("cashbook"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
-
+    const client_id = req.userDtl[0].client_id;
     try {
       sequelize
         .query(
-          `SELECT id, full_name FROM persons WHERE la_id IN (6) ORDER BY la_id `,
+          `SELECT id, full_name FROM persons WHERE  clt_id='${client_id}' AND la_id IN (6) ORDER BY la_id `,
           { type: sequelize.QueryTypes.SELECT },
         )
 
@@ -419,11 +429,11 @@ router.get(
   authorizePermission("journals"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
-
+    const client_id = req.userDtl[0].client_id;
     try {
       sequelize
         .query(
-          `SELECT id, legder_name, account_number FROM tblledger where id > '5' `,
+          `SELECT id, legder_name, account_number FROM tblledger WHERE clt_id='${client_id}' AND id > '5' `,
           { type: sequelize.QueryTypes.SELECT },
         )
 
@@ -460,13 +470,13 @@ router.get(
   authorizePermission("journals"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
-
+    const client_id = req.userDtl[0].client_id;
     // let laid = req.query.sub
 
     try {
       sequelize
         .query(
-          `SELECT la_id, full_name, act_no FROM persons WHERE contact_type='SUBSIDIARY'  `,
+          `SELECT la_id, full_name, act_no FROM persons WHERE clt_id='${client_id}' AND contact_type='SUBSIDIARY'  `,
           { type: sequelize.QueryTypes.SELECT },
         )
 
@@ -503,11 +513,12 @@ router.get(
   authorizePermission("ledger"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
+    const client_id = req.userDtl[0].client_id;
     const ctype = req.query.ctype;
     try {
       sequelize
         .query(
-          `SELECT * FROM persons WHERE flg = 'SHOW' AND contact_type = '${ctype}'`,
+          `SELECT * FROM persons WHERE flg = 'SHOW' AND clt_id=${client_id} AND contact_type = '${ctype}'`,
           { type: sequelize.QueryTypes.SELECT },
         )
 
@@ -545,7 +556,7 @@ router.get(
   authorizePermission("cusanalys"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
-
+    const client_id = req.userDtl[0].client_id;
     try {
       sequelize
         .query(
@@ -561,7 +572,7 @@ router.get(
           FROM persons p
           INNER JOIN transactions t
               ON t.personid = p.id
-          WHERE p.contact_type = 'CUSTOMER'
+          WHERE p.contact_type = 'CUSTOMER' AND p.clt_id = '${client_id}'
           GROUP BY p.id;`,
           { type: sequelize.QueryTypes.SELECT },
         )
@@ -600,12 +611,13 @@ router.get(
   authorizePermission("ledgerbal"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
+    const client_id = req.userDtl[0].client_id;
     const id = req.query.id;
     const ptype = req.query.ptype;
     try {
       sequelize
         .query(
-          `select id, dated,description, debit_amt,credit_amt,balance_amt,id,discount from transactions where personid ='${id}' AND type ='${ptype}' `,
+          `select id, dated,description, debit_amt,credit_amt,balance_amt,id,discount from transactions where personid ='${id}' AND clt_id='${client_id}'  AND type ='${ptype}' `,
           { type: sequelize.QueryTypes.SELECT },
         )
 
@@ -642,6 +654,7 @@ router.get(
   verifyAdmin,
   authorizePermission("trailbal"),
   async (req, res) => {
+    const client_id = req.userDtl[0].client_id;
     try {
       /* ===============================
        SUBSIDIARY LEDGERS
@@ -654,11 +667,10 @@ router.get(
         p.ptype,
         SUM(t.debit_amt) AS dbt,
         SUM(t.credit_amt) AS crt,
-        SUM(t.balance_amt) AS bal,
-         p.id
+        SUM(t.balance_amt) AS bal
       FROM transactions t
       JOIN persons p ON t.personid = p.id
-      WHERE p.contact_type = 'SUBSIDIARY'
+      WHERE p.contact_type = 'SUBSIDIARY' AND p.clt_id = '${client_id}'
       GROUP BY p.id, p.full_name, p.ptype
       ORDER BY p.full_name ASC
     `,
@@ -677,7 +689,7 @@ router.get(
         p.id
       FROM transactions t
       JOIN persons p ON t.personid = p.id
-      WHERE p.contact_type = 'SUPPLIERS'
+      WHERE p.contact_type = 'SUPPLIERS' AND p.clt_id = '${client_id}'
       GROUP BY p.id;
     `,
         { type: sequelize.QueryTypes.SELECT },
@@ -695,7 +707,7 @@ router.get(
          p.id
       FROM transactions t
       JOIN persons p ON t.personid = p.id
-      WHERE p.contact_type = 'CUSTOMER'
+      WHERE p.contact_type = 'CUSTOMER' AND p.clt_id = '${client_id}'
       GROUP BY p.id;
     `,
         { type: sequelize.QueryTypes.SELECT },
@@ -712,7 +724,7 @@ router.get(
         SUM(t.balance_amt) AS bal
       FROM transactions t
       JOIN persons p ON t.personid = p.id
-      WHERE p.contact_type = 'STOCKIN'
+      WHERE p.contact_type = 'STOCKIN' AND p.clt_id = '${client_id}'
       GROUP BY p.id;
     `,
         { type: sequelize.QueryTypes.SELECT },
@@ -747,12 +759,13 @@ router.post(
   authorizePermission("ledgerbal"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
+    const client_id = req.userDtl[0].client_id;
     //const id = req.query.id;
     // const ptype = req.query.ptype;
     try {
       sequelize
         .query(
-          `SELECT p.full_name,p.act_no, tr.personid, p.id, tr.type AS ptype, SUM(tr.debit_amt) AS dbt, SUM(tr.credit_amt) AS crt, SUM(tr.balance_amt) AS bal FROM transactions tr JOIN persons p ON tr.personid = p.id WHERE tr.type = 'PA' AND p.id = tr.personid GROUP BY tr.personid;   `,
+          `SELECT p.full_name,p.act_no, tr.personid, p.id, tr.type AS ptype, SUM(tr.debit_amt) AS dbt, SUM(tr.credit_amt) AS crt, SUM(tr.balance_amt) AS bal FROM transactions tr JOIN persons p ON tr.personid = p.id WHERE tr.type = 'PA' AND p.id = tr.personid AND p.clt_id = '${client_id}'  GROUP BY tr.personid;   `,
           { type: sequelize.QueryTypes.SELECT },
         )
 
@@ -790,6 +803,7 @@ router.get(
   authorizePermission("stockin"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
+    const client_id = req.userDtl[0].client_id;
 
     // SELECT
     // 									p.id,
@@ -815,53 +829,53 @@ router.get(
     let qry = "";
 
     qry = `SELECT 
-    p.id, 
-    p.product_name, 
-    p.size, 
-    p.product_code, 
-    p.bar_code,
+              p.id, 
+              p.product_name, 
+              p.size, 
+              p.product_code, 
+              p.bar_code,
 
-    IFNULL(s.sbal, 0) AS sbal,
+              IFNULL(s.sbal, 0) AS sbal,
 
-    JSON_ARRAYAGG(
-        CASE 
-            WHEN u.product_id IS NOT NULL THEN JSON_OBJECT(
-		'unit_id', u.id,
-                'pieces_in', u.pieces_in,
-                'unitprice', u.unitprice,
-                'unit_measure', u.unit_measure,
-                'costprice', u.costprice
-            )
-        END
-    ) AS units
+              JSON_ARRAYAGG(
+                  CASE 
+                      WHEN u.product_id IS NOT NULL AND u.clt_id='${client_id}' THEN JSON_OBJECT(
+                          'unit_id', u.id,
+                          'pieces_in', u.pieces_in,
+                          'unitprice', u.unitprice,
+                          'unit_measure', u.unit_measure,
+                          'costprice', u.costprice
+                      )
+                  END
+              ) AS units
 
-FROM products p
+          FROM products p
 
--- ✅ Pre-aggregated stock
-LEFT JOIN (
-    SELECT 
-        d.product_id,
-        SUM(d.stock_bal) AS sbal
-    FROM order_details d
-    JOIN orders o 
-        ON o.id = d.orders_id
-    WHERE o.store = '1'
-    GROUP BY d.product_id
-) s ON s.product_id = p.id
+          -- ✅ Pre-aggregated stock
+          LEFT JOIN (
+              SELECT 
+                  d.product_id,
+                  SUM(d.stock_bal) AS sbal
+              FROM order_details d
+              JOIN orders o 
+                  ON o.id = d.orders_id 
+              WHERE o.store = '1' AND o.clt_id ='${client_id}'
+              GROUP BY d.product_id
+          ) s ON s.product_id = p.id
 
--- ✅ Units join (safe now)
- JOIN tblunit u 
-    ON u.product_id = p.id
+          -- ✅ Units join (safe now)
+          JOIN tblunit u 
+              ON u.product_id = p.id
 
-GROUP BY 
-    p.id,
-    p.product_name,
-    p.size,
-    p.product_code,
-    p.bar_code,
-    s.sbal
+          GROUP BY 
+              p.id,
+              p.product_name,
+              p.size,
+              p.product_code,
+              p.bar_code,
+              s.sbal
 
-ORDER BY p.product_name;`;
+          ORDER BY p.product_name;`;
 
     try {
       sequelize
@@ -897,6 +911,7 @@ ORDER BY p.product_name;`;
 
 router.post("/api/v1/customer", verifyAdmin, async (req, res) => {
   // console.log(req.body);
+  const client_id = req.userDtl[0].client_id;
   const transaction = await sequelize.transaction();
   const { fullname, email, phone, gender, address, city, contactType } =
     req.body;
@@ -931,9 +946,9 @@ router.post("/api/v1/customer", verifyAdmin, async (req, res) => {
   const qry = `
     INSERT INTO persons 
     (contact_type, ptype, la_id, full_name, sex, address, dob, phone_no, city, state, email,
-     act_no, passport, isActive, postal_code, store_id, reg_date, last_date_modified, flg)
+     act_no, passport, isActive, postal_code, store_id, reg_date, last_date_modified, flg,clt_id)
     VALUES 
-    (?, 'PA', '0', ?, ?, ?, '', ?, ?, '', ?, '', '', '1', '', '1', NOW(), NOW(), 'SHOW')
+    (?, 'PA', '0', ?, ?, ?, '', ?, ?, '', ?, '', '', '1', '', '1', NOW(), NOW(), 'SHOW',?)
   `;
 
   try {
@@ -946,6 +961,7 @@ router.post("/api/v1/customer", verifyAdmin, async (req, res) => {
         phone,
         city,
         email,
+        client_id,
       ],
       type: sequelize.QueryTypes.INSERT,
       transaction,
@@ -981,6 +997,7 @@ router.post(
   verifyAdmin,
   authorizePermission("journals"),
   async (req, res) => {
+    const client_id = req.userDtl[0].client_id;
     const transaction = await sequelize.transaction();
     const { txtLedgerName, JournalID, ledgerLabel } = req.body;
     const d = new Date().toISOString().split("T")[0];
@@ -1011,14 +1028,14 @@ router.post(
 
     const qry = `
     INSERT INTO persons 
-    (contact_type,ptype,full_name,act_no,isActive,postal_code,store_id,reg_date,la_id)
+    (contact_type,ptype,full_name,act_no,isActive,postal_code,store_id,reg_date,la_id,clt_id)
     VALUES 
-    ('SUBSIDIARY', 'CA', ?, 0, 1, ?, 0, ?, ?)
+    ('SUBSIDIARY', 'CA', ?, 0, 1, ?, 0, ?, ?,?)
   `;
 
     try {
       const [result] = await sequelize.query(qry, {
-        replacements: [txtLedgerName, ledgerLabel, d, JournalID],
+        replacements: [txtLedgerName, ledgerLabel, d, JournalID, client_id],
         type: sequelize.QueryTypes.INSERT,
         transaction,
       });
@@ -1041,6 +1058,7 @@ router.post(
 );
 
 router.post("/api/v1/customerupdate", verifyAdmin, async (req, res) => {
+  const client_id = req.userDtl[0].client_id;
   const transaction = await sequelize.transaction();
   const { id, fullname, email, phone, gender, address, city } = req.body;
 
@@ -1110,6 +1128,7 @@ router.post("/api/v1/customerupdate", verifyAdmin, async (req, res) => {
 });
 
 router.post("/api/v1/hidecus", verifyAdmin, async (req, res, next) => {
+  const client_id = req.userDtl[0].client_id;
   const transaction = await sequelize.transaction();
   await sequelize
     .query(`UPDATE persons SET flg='HIDE' WHERE id ='${req.body.id}'`, {
@@ -1134,6 +1153,7 @@ router.post(
   authorizePermission("stockin"),
   async (req, res, next) => {
     // console.log(req.body);
+    const client_id = req.userDtl[0].client_id;
     const transaction = await sequelize.transaction();
     const {
       stocktype,
@@ -1246,7 +1266,7 @@ router.post(
       try {
         // STEP 1: Get the STOCKIN person ID
         const [personResult] = await sequelize.query(
-          `SELECT id FROM persons WHERE store_id = ? AND contact_type = 'STOCKIN' LIMIT 1`,
+          `SELECT id FROM persons WHERE store_id = ? AND contact_type = 'STOCKIN' AND clt_id ='${client_id}' LIMIT 1`,
           {
             replacements: [str_id],
             type: sequelize.QueryTypes.SELECT,
@@ -1264,10 +1284,10 @@ router.post(
 
         // STEP 2: Insert into orders table
         const [insertResult] = await sequelize.query(
-          `INSERT INTO orders (persons_id, invoice_no, order_mode, dates, store, users_id, transact_id)
-       VALUES (?, '0', ?, ?, ?, ?, '0')`,
+          `INSERT INTO orders (persons_id, invoice_no, order_mode, dates, store, users_id, transact_id,clt_id)
+       VALUES (?, '0', ?, ?, ?, ?, '0',?)`,
           {
-            replacements: [persons_id, or_mode, d, str_id, usr_id],
+            replacements: [persons_id, or_mode, d, str_id, usr_id, client_id],
             type: sequelize.QueryTypes.INSERT,
             transaction,
           },
@@ -1289,9 +1309,9 @@ router.post(
         //STEP 4
         const tline = addbal * cost;
         //const  penalty = addbal * cost;
-        const dateId = await getDateid.getDateID();
+        const dateId = await getDateid.getDateID(client_id);
         //const dateId = 0;
-        console.log("hhhhhh");
+        //console.log("hhhhhh");
 
         await getTransact.ProcessTransact(
           "Stock In",
@@ -1305,6 +1325,7 @@ router.post(
           dateId,
           0,
           transaction,
+          client_id,
         );
 
         await getTransact.ProcessTransact(
@@ -1319,6 +1340,7 @@ router.post(
           dateId,
           0,
           transaction,
+          client_id,
         );
 
         //STEP 5
@@ -1343,9 +1365,9 @@ router.post(
         orders_id, product_id, quantity, sales_price, discount, total_line, gain,
         unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
         vats_amount, date_time, total_costline, manifacture_date, expire_date,
-        commisn_amt, stock_bal_value,qty_type
+        commisn_amt, stock_bal_value,qty_type,clt_id
   )
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)`,
           {
             replacements: [
               orMax, // orders_id
@@ -1370,6 +1392,7 @@ router.post(
               0, // commisn_amt
               costp, // stock_bal_value
               selectedUnit, // stock_bal_value
+              client_id,
             ],
             type: sequelize.QueryTypes.INSERT,
             transaction,
@@ -1377,8 +1400,8 @@ router.post(
         );
 
         //insertDetail
-        qty_bal = await getTransact.getStockBal(prdtid, 1, transaction);
-       // const DBQtyBal = await getTransact.QtyBal(item.id, transaction);
+        qty_bal = await getTransact.getStockBal(prdtid, 1, transaction, client_id);
+        // const DBQtyBal = await getTransact.QtyBal(item.id, transaction);
         //  const qtyBal = Number(DBQtyBal) - BaseQty;
 
         await sequelize.query(
@@ -1414,6 +1437,7 @@ router.post(
   verifyAdmin,
   authorizePermission("inventory"),
   async (req, res) => {
+    const client_id = req.userDtl[0].client_id;
     const transaction = await sequelize.transaction();
     const schema = Joi.object({
       store: Joi.number().integer().positive().required().messages({
@@ -1503,6 +1527,7 @@ router.post(
           LEFT JOIN tblunit tu ON tu.product_id = pr.id
 
           WHERE o.store = ${store}
+            AND o.clt_id = ${client_id}
             AND d.product_id = ${product}
             AND tm.dated BETWEEN '${dateFrom}' AND '${dateTo}'
 
@@ -1544,14 +1569,14 @@ router.post(
           INNER JOIN tbltimes tm ON tm.id = d.time_id
           LEFT JOIN tblunit tu ON tu.product_id = pr.id
 
-          WHERE o.store = ${store}
+          WHERE o.store = ${store} AND o.clt_id = ${client_id}
             AND d.product_id = ${product} AND o.person_id = ${Ledger}
             AND tm.dated BETWEEN '${dateFrom}' AND '${dateTo}'
 
           GROUP BY d.id
           ORDER BY d.id;`;
     }
-    console.log(qry);
+    //console.log(qry);
     try {
       sequelize
         .query(qry, { type: sequelize.QueryTypes.SELECT, transaction })
@@ -1593,7 +1618,7 @@ router.post(
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     //console.log(req.body);
-
+    const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
       store: Joi.number().integer().positive().required().messages({
         "number.base": "Please Select Store must ",
@@ -1696,7 +1721,7 @@ router.post(
 										INNER JOIN orders oo
 											ON oo.id = od.orders_id
 										WHERE od.product_id = p.id
-										AND oo.store = 1
+										AND oo.store = 1 AND oo.clt_id ='${client_id}'
 										AND od.dated < '${dateFrom}'
 										ORDER BY od.dated DESC, od.id DESC
 										LIMIT 1
@@ -1705,7 +1730,7 @@ router.post(
 									/* Purchases */
 									COALESCE(SUM(
 										CASE
-											WHEN o.order_mode IN ('Bought','Stock_in')
+											WHEN o.order_mode IN ('Bought','Stock_in') AND o.clt_id ='${client_id}'
 											THEN ABS(d.stock_bal)
 											ELSE 0
 										END
@@ -1714,7 +1739,7 @@ router.post(
 									/* Purchase Value */
 									COALESCE(SUM(
 										CASE
-											WHEN o.order_mode IN ('Bought','Stock_in')
+											WHEN o.order_mode IN ('Bought','Stock_in') AND o.clt_id ='${client_id}'
 											THEN d.total_costline
 											ELSE 0
 										END
@@ -1723,7 +1748,7 @@ router.post(
 									/* Sales */
 									COALESCE(SUM(
 										CASE
-											WHEN o.order_mode IN ('Sold')
+											WHEN o.order_mode IN ('Sold') AND o.clt_id ='${client_id}'
 											THEN ABS(d.stock_bal)
 											ELSE 0
 										END
@@ -1732,7 +1757,7 @@ router.post(
 									/* RI */
 									COALESCE(SUM(
 										CASE
-											WHEN o.order_mode IN ('Returnin')
+											WHEN o.order_mode IN ('Returnin') AND o.clt_id ='${client_id}'
 											THEN ABS(d.stock_bal)
 											ELSE 0
 										END
@@ -1741,7 +1766,7 @@ router.post(
 									/* RO */
 									COALESCE(SUM(
 										CASE
-											WHEN o.order_mode IN ('Returnout')
+											WHEN o.order_mode IN ('Returnout') AND o.clt_id ='${client_id}'
 											THEN ABS(d.stock_bal)
 											ELSE 0
 										END
@@ -1751,7 +1776,7 @@ router.post(
 									/* Sales Value */
 									COALESCE(SUM(
 										CASE
-											WHEN o.order_mode IN ('Sold')
+											WHEN o.order_mode IN ('Sold') AND o.clt_id ='${client_id}'
 											THEN d.total_line
 											ELSE 0
 										END
@@ -1764,7 +1789,7 @@ router.post(
 
 								LEFT JOIN orders o
 									ON o.id = d.orders_id
-									AND o.store = 1
+									AND o.store = 1 AND o.clt_id ='${client_id}'
 									AND o.dates BETWEEN '${dateFrom}' AND '${dateTo}'
 
 								GROUP BY
@@ -1817,7 +1842,7 @@ router.post(
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     //console.log(req.body);
-
+const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
       store: Joi.number().integer().positive().required().messages({
         "number.base": "Please Select Store must ",
@@ -1911,7 +1936,7 @@ router.post(
             INNER JOIN persons p ON o.persons_id = p.id
             INNER JOIN tblusers u ON o.users_id = u.id
             WHERE p.contact_type = '${recType}'
-            AND o.store = '${store}'
+            AND o.store = '${store}' AND o.clt_id = '${client_id}'
             AND d.dated BETWEEN '${dateFrom}' AND '${dateTo}'`;
 
     try {
@@ -1953,7 +1978,7 @@ router.post(
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     //console.log(req.body);
-
+    const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
       store: Joi.number().integer().positive().required().messages({
         "number.base": "Please Select Store must ",
@@ -2107,7 +2132,7 @@ router.post(
                     FROM order_details od
                     INNER JOIN orders o
                         ON o.id = od.orders_id
-                    WHERE o.store = 1
+                    WHERE o.store = 1 AND o.clt_id = '${client_id}'
                       AND od.dated < '${dateTo}'
                 ) X
                 WHERE rn = 1
@@ -2123,7 +2148,7 @@ router.post(
 
                         SUM(
                             CASE
-                                WHEN o.order_mode IN ('Bought','Stock_in')
+                                WHEN o.order_mode IN ('Bought','Stock_in') AND o.clt_id = '${client_id}'
                                 THEN ABS(d.stock_bal)
                                 ELSE 0
                             END
@@ -2131,7 +2156,7 @@ router.post(
 
                         SUM(
                             CASE
-                                WHEN o.order_mode='Returnin'
+                                WHEN o.order_mode='Returnin' AND o.clt_id = '${client_id}'
                                 THEN ABS(d.stock_bal)
                                 ELSE 0
                             END
@@ -2139,7 +2164,7 @@ router.post(
 
                         SUM(
                             CASE
-                                WHEN o.order_mode='Returnout'
+                                WHEN o.order_mode='Returnout' AND o.clt_id = '${client_id}'
                                 THEN ABS(d.stock_bal)
                                 ELSE 0
                             END
@@ -2147,7 +2172,7 @@ router.post(
 
                         SUM(
                             CASE
-                                WHEN o.order_mode='Sold'
+                                WHEN o.order_mode='Sold' AND o.clt_id = '${client_id}'
                                 THEN ABS(d.stock_bal)
                                 ELSE 0
                             END
@@ -2155,7 +2180,7 @@ router.post(
 
                         SUM(
                             CASE
-                                WHEN o.order_mode IN ('Bought','Stock_in')
+                                WHEN o.order_mode IN ('Bought','Stock_in') AND o.clt_id = '${client_id}'
                                 THEN d.total_costline
                                 ELSE 0
                             END
@@ -2163,7 +2188,7 @@ router.post(
 
                         SUM(
                             CASE
-                                WHEN o.order_mode='Sold'
+                                WHEN o.order_mode='Sold' AND o.clt_id = '${client_id}'
                                 THEN d.total_line
                                 ELSE 0
                             END
@@ -2172,7 +2197,7 @@ router.post(
                     FROM orders o
                     INNER JOIN order_details d
                         ON d.orders_id=o.id
-                    WHERE o.store=1 AND
+                    WHERE o.store=1 AND o.clt_id = '${client_id}' AND
                     o.dates >= '${dateFrom}' AND o.dates < '${dateTo}'
                     GROUP BY d.product_id
 
@@ -2220,7 +2245,7 @@ router.post(
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     // console.log(req.body);
-
+ const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
       store: Joi.number().integer().positive().required().messages({
         "number.base": "Please Select Store must ",
@@ -2293,7 +2318,7 @@ router.post(
                   INNER JOIN tblledger ld
                     ON t.ledger_id = ld.id
                   WHERE t.dated BETWEEN '${dateFrom}' AND '${dateTo}'
-                    AND t.type = 'CA'
+                    AND t.type = 'CA' AND t.clt_id = '${client_id}'
                     AND t.ledger_id IN (5, 6)
                     AND t.str_id = '${store}';
                   `;
@@ -2337,7 +2362,7 @@ router.post(
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     // console.log(req.body);
-
+ const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
       store: Joi.number().integer().positive().required().messages({
         "number.base": "Please Select Store must ",
@@ -2406,18 +2431,18 @@ router.post(
     //console.log(SaType);
     if (SaType == "SALES") {
       if (Ledger == "ALL") {
-        qry = `SELECT o.persons_id, d.id,d.qty_type, d.orders_id, pr.product_name,pr.selling_price,pr.cost_price,pr.product_code,d.discount, d.dated, d.quantity, d.sales_price, d.total_line, d.order_mode,o.invoice_no,t.description,d.date_time, pr.piecies_value FROM order_details d, orders o, transactions t,products pr WHERE o.store ='${store}' AND d.product_id=pr.id AND d.orders_id = o.id AND o.transact_id = t.id AND o.order_mode IN ("Sold","Returnin") AND d.dated BETWEEN '${dateFrom}' AND '${dateTo}'; `;
+        qry = `SELECT o.persons_id, d.id,d.qty_type, d.orders_id, pr.product_name,pr.selling_price,pr.cost_price,pr.product_code,d.discount, d.dated, d.quantity, d.sales_price, d.total_line, d.order_mode,o.invoice_no,t.description,d.date_time, pr.piecies_value FROM order_details d, orders o, transactions t,products pr WHERE o.store ='${store}' AND d.product_id=pr.id AND d.orders_id = o.id AND o.transact_id = t.id AND o.clt_id ='${client_id}' AND o.order_mode IN ("Sold","Returnin") AND d.dated BETWEEN '${dateFrom}' AND '${dateTo}'; `;
       } else {
         qry = `
           
-        SELECT o.persons_id, d.id,d.qty_type, d.orders_id, pr.product_name,pr.selling_price,pr.cost_price,pr.product_code,d.discount, d.dated, d.quantity, d.sales_price, d.total_line,d.order_mode,o.invoice_no,t.description,d.date_time,pr.piecies_value FROM order_details d, orders o, transactions t,products pr  WHERE o.store ='${store}' AND d.product_id=pr.id AND d.orders_id = o.id  AND o.persons_id = '${Ledger}'  AND o.transact_id = t.id AND o.order_mode IN ("Sold","Returnin") AND d.dated BETWEEN '${dateFrom}' AND '${dateTo}'`;
+        SELECT o.persons_id, d.id,d.qty_type, d.orders_id, pr.product_name,pr.selling_price,pr.cost_price,pr.product_code,d.discount, d.dated, d.quantity, d.sales_price, d.total_line,d.order_mode,o.invoice_no,t.description,d.date_time,pr.piecies_value FROM order_details d, orders o, transactions t,products pr  WHERE o.store ='${store}' AND d.product_id=pr.id AND d.orders_id = o.id  AND o.persons_id = '${Ledger}'  AND o.transact_id = t.id AND o.clt_id ='${client_id}' AND o.order_mode IN ("Sold","Returnin") AND d.dated BETWEEN '${dateFrom}' AND '${dateTo}'`;
         //  // console.log(Ledger)
       }
     } else if (SaType == "PURCHASE") {
       if (Ledger == "ALL") {
-        qry = `SELECT o.persons_id, d.id,d.qty_type, d.orders_id, pr.product_name,pr.selling_price,pr.cost_price,pr.product_code,d.discount, d.dated, d.quantity, d.sales_price, d.total_line, d.order_mode,o.invoice_no,t.description,d.date_time, pr.piecies_value FROM order_details d, orders o, transactions t,products pr WHERE o.store ='${store}' AND d.product_id=pr.id AND d.orders_id = o.id AND o.transact_id = t.id AND o.order_mode IN ("Bought","Returnout") AND d.dated BETWEEN '${dateFrom}' AND '${dateTo}'; `;
+        qry = `SELECT o.persons_id, d.id,d.qty_type, d.orders_id, pr.product_name,pr.selling_price,pr.cost_price,pr.product_code,d.discount, d.dated, d.quantity, d.sales_price, d.total_line, d.order_mode,o.invoice_no,t.description,d.date_time, pr.piecies_value FROM order_details d, orders o, transactions t,products pr WHERE o.store ='${store}' AND o.clt_id ='${client_id}' AND d.product_id=pr.id AND d.orders_id = o.id AND o.transact_id = t.id AND o.order_mode IN ("Bought","Returnout") AND d.dated BETWEEN '${dateFrom}' AND '${dateTo}'; `;
       } else {
-        qry = `SELECT o.persons_id, t.ord_id, d.id,d.qty_type, d.orders_id, pr.product_name,pr.selling_price,pr.cost_price,pr.product_code,d.discount, d.dated, d.quantity, d.sales_price, d.total_line,d.order_mode,o.invoice_no,t.description,d.date_time,pr.piecies_value FROM order_details d, orders o, transactions t,products pr  WHERE o.store ='${store}' AND d.product_id=pr.id AND d.orders_id = o.id  AND o.persons_id = '${Ledger}'  AND o.id = t.ord_id AND t.type='PA' AND o.order_mode IN ("Bought","Returnout") AND d.dated BETWEEN '${dateFrom}' AND '${dateTo}'`;
+        qry = `SELECT o.persons_id, t.ord_id, d.id,d.qty_type, d.orders_id, pr.product_name,pr.selling_price,pr.cost_price,pr.product_code,d.discount, d.dated, d.quantity, d.sales_price, d.total_line,d.order_mode,o.invoice_no,t.description,d.date_time,pr.piecies_value FROM order_details d, orders o, transactions t,products pr  WHERE o.store ='${store}' AND o.clt_id ='${client_id}' AND d.product_id=pr.id AND d.orders_id = o.id  AND o.persons_id = '${Ledger}'  AND o.id = t.ord_id AND t.type='PA' AND o.order_mode IN ("Bought","Returnout") AND d.dated BETWEEN '${dateFrom}' AND '${dateTo}'`;
         //  // console.log(Ledger)
       }
     }
@@ -2460,6 +2485,7 @@ router.post(
 );
 
 router.post("/api/v1/delOrder", verifyAdmin, async (req, res) => {
+  const client_id = req.userDtl[0].client_id;
   const transaction = await sequelize.transaction();
   await getTransact.checkoutWithRetry(async () => {
     try {
@@ -2479,11 +2505,11 @@ router.post("/api/v1/delOrder", verifyAdmin, async (req, res) => {
         ON od.orders_id = o.id
       LEFT JOIN transactions tr
 	      ON tr.ord_id = o.id
-      WHERE o.id = :id
+      WHERE o.id = :id AND o.clt_id = :client_id
     `;
 
       await sequelize.query(qry, {
-        replacements: { id },
+        replacements: { id,client_id },
         type: sequelize.QueryTypes.DELETE,
         transaction,
       });
@@ -2511,7 +2537,7 @@ router.post(
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     // console.log(req.body);
-
+const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
       // store: Joi.number()
       //   .integer()
@@ -2584,55 +2610,55 @@ router.post(
                         u.othername,
                         t.dated,
                         SUM(CASE 
-                                WHEN t.type = 'CA' AND t.personid = '2' 
+                                WHEN t.type = 'CA' AND t.personid = '2' AND t.clt_id = '${client_id}'
                                 THEN t.credit_amt 
                                 ELSE 0 
                             END) AS sales,
 
                         SUM(CASE 
-                                WHEN t.type = 'CA' AND t.personid = '3' 
+                                WHEN t.type = 'CA' AND t.personid = '3' AND t.clt_id = '${client_id}'
                                 THEN t.debit_amt 
                                 ELSE 0 
                             END) AS ri,
 
                         SUM(CASE 
-                                WHEN t.type = 'CA' AND t.ledger_id = '6' 
+                                WHEN t.type = 'CA' AND t.ledger_id = '6' AND t.clt_id = '${client_id}'
                                 THEN t.balance_amt 
                                 ELSE 0 
                             END) AS bank,
                             
                             SUM(CASE 
-                                WHEN t.TYPE = 'CA' AND t.ledger_id = '5' 
+                                WHEN t.TYPE = 'CA' AND t.ledger_id = '5' AND t.clt_id = '${client_id}' 
                                 THEN t.balance_amt 
                                 ELSE 0 
                             END) AS cash,
                             
                             SUM(CASE 
-                                WHEN t.TYPE = 'CA' AND t.ca_id IN (5,6) 
+                                WHEN t.TYPE = 'CA' AND t.ca_id IN (5,6) AND t.clt_id = '${client_id}' 
                                 THEN t.balance_amt 
                                 ELSE 0 
                             END) AS deposite,
                             
                             SUM(CASE 
-                                WHEN t.type = 'CA' AND t.ledger_id = '7' 
+                                WHEN t.type = 'CA' AND t.ledger_id = '7' AND t.clt_id = '${client_id}' 
                                 THEN t.debit_amt 
                                 ELSE 0 
                             END) AS withdraw,
                             
                             SUM(CASE 
-                                WHEN t.TYPE = 'CA' AND t.ledger_id IN (2,6,5,7,3) 
+                                WHEN t.TYPE = 'CA' AND t.clt_id = '${client_id}' AND t.ledger_id IN (2,6,5,7,3) 
                                 THEN t.balance_amt 
                                 ELSE 0 
                             END) AS bal,
                             
                             SUM(CASE 
-                                WHEN t.ledger_id ='2' AND t.type='CA' 
+                                WHEN t.ledger_id ='2' AND t.clt_id = '${client_id}' AND t.type='CA' 
                                 THEN t.discount 
                                 ELSE 0 
                             END) AS dsc
                             
 
-                    FROM transactions t, tblusers u  WHERE t.userid= u.id AND t.dated BETWEEN '${dateFrom}' AND '${dateTo}'
+                    FROM transactions t, tblusers u  WHERE t.userid= u.id AND u.client_id = '${client_id}' AND t.dated BETWEEN '${dateFrom}' AND '${dateTo}'
                     GROUP BY userid;
                   `;
 
@@ -2689,6 +2715,7 @@ router.post(
   verifyAdmin,
   authorizePermission("post"),
   async (req, res) => {
+    const client_id = req.userDtl[0].client_id;
     const transaction = await sequelize.transaction();
     await getTransact.checkoutWithRetry(async () => {
       try {
@@ -2761,9 +2788,9 @@ router.post(
 
         // ===================== SYSTEM VALUES =====================
         const usr_id = req.userDtl[0].id;
-        const dateId = await getDateid.getDateID();
+        const dateId = await getDateid.getDateID(client_id);
 
-        const cashid = await getTransact.get1Col("la_id", "persons", walletID);
+        const cashid = await getTransact.get1Col("la_id", "persons", walletID,client_id);
 
         // ===================== POSTING LOGIC =====================
         if (posttype === "DEBIT") {
@@ -2784,6 +2811,7 @@ router.post(
             0,
             0,
             transaction,
+            client_id
           );
 
           // Second Leg – Debit Customer Ledger
@@ -2804,6 +2832,7 @@ router.post(
             0,
             0,
             transaction,
+            client_id
           );
         }
 
@@ -2825,6 +2854,7 @@ router.post(
             0,
             0,
             transaction,
+            client_id
           );
 
           // Second Leg – Credit Customer Ledger
@@ -2844,6 +2874,7 @@ router.post(
             0,
             0,
             transaction,
+            client_id
           );
         }
 
@@ -2870,6 +2901,7 @@ router.post(
   verifyAdmin,
   authorizePermission("expenses"),
   async (req, res) => {
+    const client_id = req.userDtl[0].client_id;
     const transaction = await sequelize.transaction();
     try {
       // ===================== VALIDATION SCHEMA =====================
@@ -2941,11 +2973,11 @@ router.post(
 
       // ===================== SYSTEM VALUES =====================
       const usr_id = req.userDtl[0].id;
-      const dateId = await getDateid.getDateID();
+      const dateId = await getDateid.getDateID(client_id);
 
       // ===================== POSTING LOGIC =====================
       if (posttype === "CREDIT") {
-        const cashid = await getTransact.get1Col("la_id", "persons", walletID);
+        const cashid = await getTransact.get1Col("la_id", "persons", walletID, client_id);
         // First Leg – Credit Wallet (Cash Account)
         let desc = `Remove from ${walletText} wallet Account to ${AccountName} Account - ${txtDesc}`;
 
@@ -2964,6 +2996,7 @@ router.post(
           0,
           0,
           transaction,
+          client_id
         );
 
         // Second Leg – Debit Customer Ledger
@@ -2972,6 +3005,7 @@ router.post(
           "la_id",
           "persons",
           AccountID,
+          client_id
         );
         await getTransact.ProcessCheckout(
           desc,
@@ -2988,13 +3022,14 @@ router.post(
           0,
           0,
           transaction,
+          client_id,
         );
       }
 
       if (posttype === "DEBIT") {
         // First Leg – Debit Wallet (Cash Account)
         let desc = `Return to ${walletText} wallet Account from ${AccountName} Account - ${txtDesc}`;
-        const cashid = await getTransact.get1Col("la_id", "persons", walletID);
+        const cashid = await getTransact.get1Col("la_id", "persons", walletID,client_id);
         await getTransact.ProcessCheckout(
           desc,
           walletID,
@@ -3010,6 +3045,7 @@ router.post(
           0,
           0,
           transaction,
+          client_id
         );
 
         // Second Leg – Credit Customer Ledger
@@ -3018,6 +3054,7 @@ router.post(
           "la_id",
           "persons",
           AccountID,
+          client_id
         );
         await getTransact.ProcessCheckout(
           desc,
@@ -3034,6 +3071,7 @@ router.post(
           0,
           0,
           transaction,
+          client_id
         );
       }
 
@@ -3059,6 +3097,7 @@ router.post(
   verifyAdmin,
   authorizePermission("capital"),
   async (req, res) => {
+    const client_id = req.userDtl[0].client_id;
     const transaction = await sequelize.transaction();
     await getTransact.checkoutWithRetry(async () => {
       try {
@@ -3138,8 +3177,8 @@ router.post(
 
         // ===================== SYSTEM VALUES =====================
         const usr_id = req.userDtl[0].id;
-        const dateId = await getDateid.getDateID();
-        const cashid = await getTransact.get1Col("la_id", "persons", walletID);
+        const dateId = await getDateid.getDateID(client_id);
+        const cashid = await getTransact.get1Col("la_id", "persons", walletID,client_id);
 
         // ===================== POSTING LOGIC =====================
         //if (posttype === "CREDIT") {
@@ -3161,6 +3200,7 @@ router.post(
           0,
           0,
           transaction,
+          client_id
         );
 
         // Second Leg – Debit Customer Ledger
@@ -3180,6 +3220,7 @@ router.post(
           0,
           0,
           transaction,
+          client_id
         );
 
         // }
@@ -3247,6 +3288,7 @@ router.post(
   verifyAdmin,
   authorizePermission("cashbook"),
   async (req, res) => {
+    const client_id = req.userDtl[0].client_id;
     const transaction = await sequelize.transaction();
     await getTransact.checkoutWithRetry(async () => {
       try {
@@ -3323,8 +3365,8 @@ router.post(
 
         // ===================== SYSTEM VALUES =====================
         const usr_id = req.userDtl[0].id;
-        const dateId = await getDateid.getDateID();
-        const cashid = await getTransact.get1Col("la_id", "persons", walletID);
+        const dateId = await getDateid.getDateID(client_id);
+        const cashid = await getTransact.get1Col("la_id", "persons", walletID,client_id);
 
         // ===================== POSTING LOGIC =====================
         if (posttype === "CREDIT") {
@@ -3345,6 +3387,7 @@ router.post(
             0,
             0,
             transaction,
+            client_id
           );
 
           // First Leg – Credit Wallet (Cash Account)
@@ -3365,6 +3408,7 @@ router.post(
             0,
             0,
             transaction,
+            client_id
           );
         }
 
@@ -3387,6 +3431,7 @@ router.post(
             0,
             0,
             transaction,
+            client_id
           );
 
           // Second Leg – Credit Customer Ledger
@@ -3407,6 +3452,7 @@ router.post(
             0,
             0,
             transaction,
+            client_id
           );
         }
 
@@ -3433,6 +3479,7 @@ router.post(
   verifyAdmin,
   authorizePermission("otherincome"),
   async (req, res) => {
+    const client_id = req.userDtl[0].client_id;
     const transaction = await sequelize.transaction();
     await getTransact.checkoutWithRetry(async () => {
       try {
@@ -3514,8 +3561,8 @@ router.post(
 
         // ===================== SYSTEM VALUES =====================
         const usr_id = req.userDtl[0].id;
-        const dateId = await getDateid.getDateID();
-        const cashid = await getTransact.get1Col("la_id", "persons", walletID);
+        const dateId = await getDateid.getDateID(client_id);
+        const cashid = await getTransact.get1Col("la_id", "persons", walletID,client_id);
 
         // ===================== POSTING LOGIC =====================
         //if (posttype === "CREDIT") {
@@ -3537,11 +3584,12 @@ router.post(
           0,
           0,
           transaction,
+          client_id
         );
 
         // Second Leg – Debit Customer Ledger
         desc = txtDesc;
-        const cashidA = await getTransact.get1Col("la_id", "persons", 6);
+        const cashidA = await getTransact.get1Col("la_id", "persons", 6,client_id);
         await getTransact.ProcessCheckout(
           desc,
           6,
@@ -3556,6 +3604,7 @@ router.post(
           0,
           0,
           transaction,
+          client_id
         );
 
         // }
@@ -3623,6 +3672,7 @@ router.post(
   verifyAdmin,
   authorizePermission("prev"),
   async (req, res) => {
+    const client_id = req.userDtl[0].client_id;
     const transaction = await sequelize.transaction();
     await getTransact.checkoutWithRetry(async () => {
       try {
@@ -3705,11 +3755,12 @@ router.post(
 
         // ===================== SYSTEM VALUES =====================
         const usr_id = req.userDtl[0].id;
-        const dateId = await getDateid.getDateID();
+        const dateId = await getDateid.getDateID(client_id);
         const cashid = await getTransact.get1Col(
           "la_id",
           "persons",
           customerID,
+          client_id
         );
 
         // ===================== POSTING LOGIC =====================
@@ -3732,6 +3783,7 @@ router.post(
             0,
             0,
             transaction,
+            client_id
           );
         }
 
@@ -3753,6 +3805,7 @@ router.post(
             0,
             0,
             transaction,
+            client_id
           );
         }
         await transaction.commit();
@@ -3775,6 +3828,7 @@ router.post(
 
 router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
   // console.log(req.body);
+  const client_id = req.userDtl[0].client_id;
   const transaction = await sequelize.transaction();
   const {
     payVia,
@@ -3876,10 +3930,10 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
     try {
       // STEP 2: Insert into orders table
       const [insertResult] = await sequelize.query(
-        `INSERT INTO orders (persons_id, order_mode, dates, store, users_id, transact_id)
-              VALUES (?, ?, ?, ?, ?, '0')`,
+        `INSERT INTO orders (persons_id, order_mode, dates, store, users_id, transact_id,clt_id)
+              VALUES (?, ?, ?, ?, ?, '0',?)`,
         {
-          replacements: [customer.id, orderMode, d, str_id, usr_id],
+          replacements: [customer.id, orderMode, d, str_id, usr_id,client_id],
           type: sequelize.QueryTypes.INSERT,
           transaction,
         },
@@ -3904,7 +3958,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
         let ca_id = 0;
 
         //const  penalty = addbal * cost;
-        const dateId = await getDateid.getDateID();
+        const dateId = await getDateid.getDateID(client_id);
 
         const TxID = await getTransact.ProcessCheckout(
           desc,
@@ -3920,6 +3974,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
+          client_id
         );
 
         await sequelize.query(
@@ -3947,6 +4002,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
+          client_id
         );
 
         //===========================PAYMENT POST ================================
@@ -3959,6 +4015,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
             "la_id",
             "persons",
             item.payVia,
+            client_id
           );
           let desc = `Cash Paid By ${customer.full_name} Via ${item.payViaText}`;
           let TDsc = 0;
@@ -3977,6 +4034,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
             TDsc,
             0,
             transaction,
+            client_id,
           );
 
           await getTransact.ProcessCheckout(
@@ -3993,6 +4051,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
             TDsc,
             0,
             transaction,
+            client_id,
           );
         }
 
@@ -4034,7 +4093,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
 
           const orderMode = "Sold";
           const stk_bal = -BaseQty;
-          const DBQtyBal = await getTransact.QtyBal(item.id, transaction);
+          const DBQtyBal = await getTransact.QtyBal(item.id, transaction,client_id);
           const qtyBal = Number(DBQtyBal) - BaseQty;
           //  const qtyBal = Number(item.qbal) - BaseQty;
           const stkBalVal = -sellp;
@@ -4046,9 +4105,9 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
                             orders_id, product_id, quantity, sales_price, discount, total_line, gain,
                             unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
                             vats_amount, date_time, total_costline, manifacture_date, expire_date,
-                            commisn_amt, stock_bal_value, qty_type
+                            commisn_amt, stock_bal_value, qty_type,clt_id
                           )
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
             {
               replacements: [
                 orMax, // orders_id
@@ -4073,6 +4132,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
                 0,
                 stkBalVal,
                 QtyType,
+                client_id
               ],
               type: sequelize.QueryTypes.INSERT,
               transaction,
@@ -4085,7 +4145,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
         }
 
         const ledgerResult = await sequelize.query(
-          `SELECT SUM(balance_amt) AS bal FROM transactions WHERE personid=?`,
+          `SELECT SUM(balance_amt) AS bal FROM transactions WHERE personid=? AND clt_id ='${client_id}'`,
           {
             replacements: [customer.id],
             type: sequelize.QueryTypes.SELECT,
@@ -4135,7 +4195,9 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
 
 router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
   //console.log(req.body)
+  
   const transaction = await sequelize.transaction();
+   const client_id = req.userDtl[0].client_id;
   const {
     payVia,
     AmtPaid,
@@ -4228,10 +4290,10 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
     try {
       // STEP 2: Insert into orders table
       const [insertResult] = await sequelize.query(
-        `INSERT INTO orders (persons_id, invoice_no, order_mode, dates, store, users_id, transact_id)
-       VALUES (?, '0', ?, ?, ?, ?, '0')`,
+        `INSERT INTO orders (persons_id, invoice_no, order_mode, dates, store, users_id, transact_id,clt_id)
+       VALUES (?, '0', ?, ?, ?, ?, '0',?)`,
         {
-          replacements: [customer.id, orderMode, d, str_id, usr_id],
+          replacements: [customer.id, orderMode, d, str_id, usr_id,client_id],
           type: sequelize.QueryTypes.INSERT,
           transaction,
         },
@@ -4255,7 +4317,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
         let ca_id = 0;
 
         //const  penalty = addbal * cost;
-        const dateId = await getDateid.getDateID();
+        const dateId = await getDateid.getDateID(client_id);
 
         await getTransact.ProcessCheckout(
           desc,
@@ -4271,6 +4333,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
+          client_id
         );
 
         desc = `RI Ledger Credited For ${customer.full_name}`;
@@ -4289,6 +4352,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
+          client_id
         );
 
         const sortedCart = [...cart].sort((a, b) => a.id - b.id);
@@ -4325,9 +4389,9 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           // let gain = sellp - costp;
           let orderMode = "Returnin";
           let stk_bal = BaseQty;
-          const DBQtyBal = await getTransact.QtyBal(item.id, transaction);
+          const DBQtyBal = await getTransact.QtyBal(item.id, transaction,client_id);
           const qtyBal = Number(DBQtyBal) + BaseQty;
-         // const qtyBal = Number(item.qbal) + BaseQty;
+          // const qtyBal = Number(item.qbal) + BaseQty;
           gain = -1 * gain;
           let stkBalVal = -sellp;
 
@@ -4336,9 +4400,9 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
                     orders_id, product_id, quantity, sales_price, discount, total_line, gain,
                     unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
                     vats_amount, date_time, total_costline, manifacture_date, expire_date,
-                    commisn_amt, stock_bal_value,qty_type
+                    commisn_amt, stock_bal_value,qty_type,clt_id
                   )
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)`,
             {
               replacements: [
                 orMax, // orders_id
@@ -4363,6 +4427,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
                 0, // commisn_amt
                 stkBalVal, // stock_bal_value
                 QtyType, // stock_bal_value
+                client_id
               ],
               type: sequelize.QueryTypes.INSERT,
               transaction,
@@ -4378,7 +4443,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
         let ca_id = 0;
 
         //const  penalty = addbal * cost;
-        const dateId = await getDateid.getDateID();
+        const dateId = await getDateid.getDateID(client_id);
 
         await getTransact.ProcessCheckout(
           desc,
@@ -4394,6 +4459,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
+          client_id
         );
 
         desc = `RO Ledger Debited For ${customer.full_name}`;
@@ -4412,6 +4478,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
+          client_id
         );
 
         // for (let item of AllPays) {
@@ -4456,7 +4523,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           let gain = 0;
           let orderMode = "Returnout";
           let stk_bal = -BaseQty;
-          const DBQtyBal = await getTransact.QtyBal(item.id, transaction);
+          const DBQtyBal = await getTransact.QtyBal(item.id, transaction, client_id);
           const qtyBal = Number(DBQtyBal) - BaseQty;
           //let qtyBal = Number(item.qbal - BaseQty);
           let stkBalVal = -sellp;
@@ -4468,9 +4535,9 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
                     orders_id, product_id, quantity, sales_price, discount, total_line, gain,
                     unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
                     vats_amount, date_time, total_costline, manifacture_date, expire_date,
-                    commisn_amt, stock_bal_value,qty_type
+                    commisn_amt, stock_bal_value,qty_type,clt_id
                   )
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)`,
             {
               replacements: [
                 orMax, // orders_id
@@ -4495,6 +4562,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
                 0, // commisn_amt
                 stkBalVal, // stock_bal_value
                 QtyType, // stock_bal_value
+                client_id
               ],
               type: sequelize.QueryTypes.INSERT,
               transaction,
@@ -4510,7 +4578,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
         let ca_id = 0;
 
         //const  penalty = addbal * cost;
-        const dateId = await getDateid.getDateID();
+        const dateId = await getDateid.getDateID(client_id);
 
         await getTransact.ProcessCheckout(
           desc,
@@ -4526,6 +4594,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
+          client_id
         );
 
         desc = `Puchase Ledger Credited For ${customer.full_name}`;
@@ -4544,6 +4613,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
+          client_id
         );
 
         const sortedCart = [...cart].sort((a, b) => a.id - b.id);
@@ -4574,7 +4644,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           let gain = sellp - costp;
           let orderMode = "Bought";
           let stk_bal = BaseQty;
-          const DBQtyBal = await getTransact.QtyBal(item.id, transaction);
+          const DBQtyBal = await getTransact.QtyBal(item.id, transaction, client_id);
           const qtyBal = Number(DBQtyBal) + BaseQty;
           //let qtyBal = Number(item.qbal) + BaseQty;
           let stkBalVal = sellp;
@@ -4584,9 +4654,9 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
                     orders_id, product_id, quantity, sales_price, discount, total_line, gain,
                     unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
                     vats_amount, date_time, total_costline, manifacture_date, expire_date,
-                    commisn_amt, stock_bal_value,qty_type
+                    commisn_amt, stock_bal_value,qty_type,clt_id
                   )
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)`,
             {
               replacements: [
                 orMax, // orders_id
@@ -4611,6 +4681,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
                 0, // commisn_amt
                 stkBalVal, // stock_bal_value
                 QtyType, // stock_bal_value
+                client_id
               ],
               type: sequelize.QueryTypes.INSERT,
               transaction,
@@ -4643,6 +4714,7 @@ router.get(
   authorizePermission("stockout"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
+     const client_id = req.userDtl[0].client_id;
     const miniVal = req.query.mv;
 
     try {
@@ -4673,7 +4745,7 @@ router.get(
                 FROM order_details d
                 JOIN orders o 
                     ON d.orders_id = o.id
-                WHERE o.store = '1'
+                WHERE o.store = '1' AND o.clt_id = '${client_id}'
                 GROUP BY d.product_id
             ) s 
                 ON s.product_id = pr.id
@@ -4723,7 +4795,7 @@ router.get(
   authorizePermission("all_inventory"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
-
+     const client_id = req.userDtl[0].client_id;
     try {
       sequelize
         .query(
@@ -4751,7 +4823,7 @@ router.get(
                     SUM(d.stock_bal) AS stk
                   FROM order_details d
                   JOIN orders o ON d.orders_id = o.id
-                  WHERE o.store = '1'
+                  WHERE o.store = '1' AND o.clt_id = '${client_id}'
                   GROUP BY d.product_id
                 ) s ON s.product_id = pr.id
 
@@ -4795,7 +4867,7 @@ router.get("/api/v1/allpinvoice", verifyAdmin, async (req, res) => {
   //console.log(req.userDtl[0].id)
   let pid = req.query.pid;
   //console.log(pid)
-
+ const client_id = req.userDtl[0].client_id;
   try {
     sequelize
       .query(
@@ -4809,7 +4881,7 @@ router.get("/api/v1/allpinvoice", verifyAdmin, async (req, res) => {
                         o.invoice_no
                     FROM order_details d
                     JOIN orders o ON d.orders_id = o.id
-                    WHERE o.persons_id = ${pid}
+                    WHERE o.persons_id = ${pid} AND o.clt_id ='${client_id}'
                     GROUP BY d.orders_id, o.invoice_no
                     ORDER BY d.orders_id DESC;
                   `,
@@ -4847,12 +4919,12 @@ router.get("/api/v1/viewRcpt", verifyAdmin, async (req, res) => {
   //console.log(req.userDtl[0].id)
   let oid = req.query.oid;
   // console.log(oid)
-
+   const client_id = req.userDtl[0].client_id;
   try {
     sequelize
       .query(
         `
-            SELECT pr.product_name, pr.product_code, pr.piecies_value, d.quantity, d.sales_price, d.discount, d.total_line, d.orders_id, o.dates FROM order_details d, products pr, orders o WHERE d.product_id = pr.id AND d.orders_id = '${oid}' AND d.orders_id = o.id
+            SELECT pr.product_name, pr.product_code, pr.piecies_value, d.quantity, d.sales_price, d.discount, d.total_line, d.orders_id, o.dates FROM order_details d, products pr, orders o WHERE d.product_id = pr.id AND d.orders_id = '${oid}' AND d.orders_id = o.id AND o.clt_id = '${client_id}'
                   `,
         { type: sequelize.QueryTypes.SELECT },
       )
@@ -4886,11 +4958,11 @@ router.get("/api/v1/viewRcpt", verifyAdmin, async (req, res) => {
 
 router.get("/api/v1/stores", verifyAdmin, async (req, res) => {
   //console.log(req.userDtl[0].id)
-
+ const client_id = req.userDtl[0].client_id;
   try {
     sequelize
       .query(
-        `SELECT id,store_name, store_code FROM store order by store_name`,
+        `SELECT id,store_name, store_code FROM store WHERE clt_id='${client_id}' order by store_name`,
         { type: sequelize.QueryTypes.SELECT },
       )
 
@@ -4927,6 +4999,7 @@ router.post(
   authorizePermission("statement"),
   async (req, res) => {
     //console.log(req.body);
+    const client_id = req.userDtl[0].client_id;
     try {
       const { cboTime, cboCatSel } = req.body;
 
@@ -4942,36 +5015,36 @@ router.post(
       // =========================
 
       if (cboCatSel === "Monthly") {
-        dateFilter = `AND t.month_num = '${cboTime}' AND t.Year = '${year}'`;
+        dateFilter = `AND t.month_num = '${cboTime}' AND t.Year = '${year}' AND t.clt_id = '${client_id}'`;
         // params = [cboTime, year];
 
         const [[minMonth]] = await sequelize.query(
-          "SELECT MIN(month_num) AS lstM FROM tbltimes",
+          `SELECT MIN(month_num) AS lstM FROM tbltimes WHERE clt_id = '${client_id}'`,
         );
 
         const lastMonth = String(parseInt(cboTime) - 1).padStart(2, "0");
 
-        dateFilterStock = `AND t.month_num BETWEEN '${minMonth.lstM}' AND '${lastMonth}' AND t.Year = '${year}'`;
+        dateFilterStock = `AND t.month_num BETWEEN '${minMonth.lstM}' AND '${lastMonth}' AND t.Year = '${year}' AND t.clt_id = '${client_id}'`;
         // paramsStock = [minMonth.lstM, lastMonth, year];
       }
 
       if (cboCatSel === "Quaterly") {
-        dateFilter = `AND t.Quarter = '${cboTime}' AND t.Year = '${year}'`;
+        dateFilter = `AND t.Quarter = '${cboTime}' AND t.Year = '${year}' AND t.clt_id = '${client_id}'`;
         //params = [cboTime, year];
 
         const [[minQuarter]] = await sequelize.query(
-          `SELECT MIN(Quarter) AS lstM FROM tbltimes WHERE Year = '${year}'`,
+          `SELECT MIN(Quarter) AS lstM FROM tbltimes WHERE Year = '${year}' AND t.clt_id = '${client_id}'`,
         );
 
-        dateFilterStock = `AND t.Quarter BETWEEN '${minQuarter.lstM}' AND '${cboTime}' AND t.Year = '${year}'`;
+        dateFilterStock = `AND t.Quarter BETWEEN '${minQuarter.lstM}' AND '${cboTime}' AND t.Year = '${year}' AND t.clt_id = '${client_id}'`;
         //paramsStock = [minQuarter.lstM, cboTime, year];
       }
 
       if (cboCatSel === "Yearly") {
-        dateFilter = `AND t.Year = '${cboTime}'`;
+        dateFilter = `AND t.Year = '${cboTime}' AND t.clt_id = '${client_id}'`;
         //params = [cboTime];
 
-        dateFilterStock = `AND t.Year = '${year}'`;
+        dateFilterStock = `AND t.Year = '${year}' AND t.clt_id = '${client_id}'`;
         //paramsStock = [year];
       }
 
@@ -4981,21 +5054,21 @@ router.post(
 
       const qry = `
         SELECT
-          COALESCE(SUM(CASE WHEN d.order_mode = 'Sold' THEN d.total_line END),0) AS sold,
-          COALESCE(SUM(CASE WHEN d.order_mode = 'Sold' THEN d.total_costline END),0) AS sold_cost,
-          COALESCE(SUM(CASE WHEN d.order_mode = 'Sold' THEN d.discount END),0) AS discount_allowed,
+          COALESCE(SUM(CASE WHEN d.order_mode = 'Sold' AND d.clt_id = '${client_id}' THEN d.total_line END),0) AS sold,
+          COALESCE(SUM(CASE WHEN d.order_mode = 'Sold' AND d.clt_id = '${client_id}' THEN d.total_costline END),0) AS sold_cost,
+          COALESCE(SUM(CASE WHEN d.order_mode = 'Sold' AND d.clt_id = '${client_id}' THEN d.discount END),0) AS discount_allowed,
 
-          COALESCE(SUM(CASE WHEN d.order_mode = 'Returnin' THEN d.total_line END),0) AS return_in,
-          COALESCE(SUM(CASE WHEN d.order_mode = 'Returnin' THEN d.total_costline END),0) AS return_in_cost,
+          COALESCE(SUM(CASE WHEN d.order_mode = 'Returnin' AND d.clt_id = '${client_id}' THEN d.total_line END),0) AS return_in,
+          COALESCE(SUM(CASE WHEN d.order_mode = 'Returnin' AND d.clt_id = '${client_id}' THEN d.total_costline END),0) AS return_in_cost,
 
-          COALESCE(SUM(CASE WHEN d.order_mode IN ('Bought','Transfer','stockin') THEN d.total_line END),0) AS purchases,
-          COALESCE(SUM(CASE WHEN d.order_mode IN ('Bought','Transfer','stockin') THEN d.discount END),0) AS discount_received,
+          COALESCE(SUM(CASE WHEN d.order_mode IN ('Bought','Transfer','stockin')  AND d.clt_id = '${client_id}' THEN d.total_line END),0) AS purchases,
+          COALESCE(SUM(CASE WHEN d.order_mode IN ('Bought','Transfer','stockin')  AND d.clt_id = '${client_id}' THEN d.discount END),0) AS discount_received,
 
-          COALESCE(SUM(CASE WHEN d.order_mode = 'Returnout' THEN d.total_line END),0) AS return_out
+          COALESCE(SUM(CASE WHEN d.order_mode = 'Returnout' AND d.clt_id = '${client_id}' THEN d.total_line END),0) AS return_out
 
         FROM order_details d
         JOIN tbltimes t ON t.id = d.time_id
-        WHERE d.order_mode IN ('Sold','Returnin','Bought','Transfer','stockin','Returnout')
+        WHERE   d.clt_id = '${client_id}' AND d.order_mode IN ('Sold','Returnin','Bought','Transfer','stockin','Returnout') 
         ${dateFilter}
         `;
 
@@ -5018,7 +5091,7 @@ router.post(
         SELECT COALESCE(SUM(d.stock_bal_value),0) AS stock_value
         FROM order_details d
         JOIN tbltimes t ON t.id = d.time_id
-        WHERE 1=1 ${dateFilterStock}
+        WHERE t.clt_id='${client_id}' ${dateFilterStock}
         `,
         // paramsStock
       );
@@ -5034,7 +5107,7 @@ router.post(
         FROM transactions tr
         JOIN tbltimes t ON t.id = tr.dateid
         WHERE tr.personid = '6' 
-        AND tr.ledger_id = '14'
+        AND tr.ledger_id = '14' AND t.clt_id='${client_id}'
         ${dateFilter}
         `,
       );
@@ -5052,7 +5125,7 @@ router.post(
         FROM transactions tr
         JOIN persons p ON p.id = tr.personid
         JOIN tbltimes t ON t.id = tr.dateid
-        WHERE p.la_id = '7'
+        WHERE p.la_id = '7' AND t.clt_id='${client_id}'
         ${dateFilter}
         GROUP BY p.id, p.full_name
         `,

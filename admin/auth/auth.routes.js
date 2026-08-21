@@ -60,7 +60,7 @@ router.post("/api/v1/auth/login", async (req, res) => {
         type: sequelize.QueryTypes.SELECT,
       },
     );
-    console.log(results)
+    //console.log(results)
     if (results.length > 0) {
       const user = results[0];
        console.log(user)

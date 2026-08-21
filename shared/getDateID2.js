@@ -1,6 +1,6 @@
 
 const sequelize = require("../config/database");
-const getDateID = async () => {
+const getDateID = async (ClientID) => {
     try {
         let currentDate = new Date();
         let Dated = currentDate.toISOString().split("T")[0];
@@ -31,10 +31,10 @@ const getDateID = async () => {
         // Insert into the database
         await sequelize.query(
             `INSERT INTO tbltimes 
-            (Dated, Year, Quarter, Month_Name, Day_Name, Is_Week_End, Is_Month_End, is_working_days, Month_Num) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (Dated, Year, Quarter, Month_Name, Day_Name, Is_Week_End, Is_Month_End, is_working_days, Month_Num,clt_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
             {
-                replacements: [Dated, year, qrter, monthName, dayName, IsWeekd, IsMnthed, Iswking, monthNum],
+                replacements: [Dated, year, qrter, monthName, dayName, IsWeekd, IsMnthed, Iswking, monthNum, ClientID],
                 type: sequelize.QueryTypes.INSERT
             }
         );

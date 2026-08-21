@@ -71,12 +71,12 @@ const deletePerson = async (id) => {
     //return{}
   };
 
-  const getAllCustomers = async (mypages) => {
+  const getAllCustomers = async (mypages,clientID) => {
     const { page, size } = mypages;
     const usersWithCount = await persons.findAndCountAll({
       limit: size,
       offset: page * size,
-      where:{"acct_type":"CREDITORS"},
+      where:{"acct_type":"CREDITORS","clt_id":clientID},
       attributes: { exclude: ["createdAt", "Token"] },
       order: [
         ['id','DESC']

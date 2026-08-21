@@ -47,13 +47,14 @@ router.post(
   verifyAdmin,
   authorizePermission("products"),
   async (req, res, next) => {
+     const client_id = req.userDtl[0].client_id;
     // console.log(req.userDtl);
     //console.log(req.body);
     const usr_id = req.userDtl[0].id;
     const { error, value } = ProductSchema.validate(req.body);
 
     if (error) {
-      console.log(error);
+     // console.log(error);
 
       return res.status(400).json({
         success: false,
@@ -89,8 +90,9 @@ router.post(
         // piecies_value: req.body.txtPcsInWhole,
         product_code: "100",
         dated: d,
-        mfg_date: req.body.txtMfDate,
+        mfg_date: req.body.txtMfDate ,
         expiry_date: req.body.txtExpDate,
+        clt_id:client_id
       };
 
       // console.log(myData)
@@ -102,10 +104,10 @@ router.post(
       await cProduct.getRecByID("id", act_no1, Max_ID);
 
       const [insertResult] = await sequelize.query(
-        `INSERT INTO tblunit (product_id, unit_measure, pieces_in, unitprice, costprice)
-              VALUES (?, 'PIECES', '1', ?, ?)`,
+        `INSERT INTO tblunit (product_id, unit_measure, pieces_in, unitprice, costprice,clt_id)
+              VALUES (?, 'PIECES', '1', ?, ?,?)`,
         {
-          replacements: [Max_ID, req.body.txtPrice, req.body.txtCostPrice],
+          replacements: [Max_ID, req.body.txtPrice,req.body.txtCostPrice,client_id],
           type: sequelize.QueryTypes.INSERT,
         },
       );
@@ -122,7 +124,7 @@ router.post(
 
 router.post("/api/v1/addunit", verifyAdmin, async (req, res, next) => {
   //const usr_id = req.userDtl[0].dataValues.id;
-
+const client_id = req.userDtl[0].client_id;
   const Joi = require("joi");
 
   //console.log(req.body);
@@ -171,9 +173,9 @@ router.post("/api/v1/addunit", verifyAdmin, async (req, res, next) => {
 
   const query = `
     INSERT INTO tblunit 
-    (product_id, unit_measure, pieces_in, unitprice, costprice) 
+    (product_id, unit_measure, pieces_in, unitprice, costprice,clt_id) 
     VALUES 
-    (:product_id, :unit_measure, :pieces_in, :unitprice, :costprice)
+    (:product_id, :unit_measure, :pieces_in, :unitprice, :costprice, :cltID)
   `;
 
   try {
@@ -184,6 +186,7 @@ router.post("/api/v1/addunit", verifyAdmin, async (req, res, next) => {
         pieces_in: value.txtPiecesValue,
         unitprice: value.txtUnitSellPrice,
         costprice: value.txtUnitCostprice,
+        cltID: client_id,
       },
       type: sequelize.QueryTypes.INSERT,
     });
@@ -203,7 +206,7 @@ router.post("/api/v1/addunit", verifyAdmin, async (req, res, next) => {
 
 router.post("/api/v1/updateunit", verifyAdmin, async (req, res, next) => {
   //const usr_id = req.userDtl[0].dataValues.id;
-
+const client_id = req.userDtl[0].client_id;
   const Joi = require("joi");
 
   console.log(req.body);
@@ -289,143 +292,20 @@ router.post("/api/v1/updateunit", verifyAdmin, async (req, res, next) => {
   }
 });
 
-router.post("/api/v1/product11", verifyAdmin, async (req, res, next) => {
-  //console.log(req.userDtl);
-  //console.log(req.body)
-  const usr_id = req.userDtl[0].dataValues.id;
-  // const { error, value } = schema.validate(req.body, { abortEarly: false });
-  //const { error, value } = schema.validate(req.body);
 
-  const { error, value } = ProductSchema.validate(req.body);
-
-  if (error) {
-    console.log(error);
-    //const errorMessages = error.details.map((detail) => detail.message);
-    // return res.status(400).json({ errors: errorMessages });
-    //throw new BadRequest400(error.details[0].message);
-    //throw new Error(error.details[0].message)
-    // BadRequest400
-    return res.status(200).json({
-      success: false,
-      code: 200,
-      message: error.details[0].message.replace(/\"/g, ""),
-    });
-  } else {
-    //console.log(value);
-    //console.log(req.body);
-    // const token = Tools.getUniqueId();
-    // const d = "2024-04-29";
-    const dt = new Date().toISOString();
-    const d = Tools.getNowDate();
-
-    var prdtDesc = req.body.txtPrdtDesc.replace(/[,'']/g, "");
-
-    const query = `
-  INSERT INTO products 
-  (
-    product_name, bar_code, category, prdt_type, prdt_sub_type, 
-    prdt_state, prdt_lgv, prdt_area, prdt_desc, size, isFunished, 
-    isShared, isServiced, unit_sell_price, cost_price, model, 
-    brand, store_id, product_code, dateid, user_id, vat_amtz, 
-    flag, dated, timed, pix_paths, prdt_address, t_toilet, 
-    t_bathroom, parking_space, vid_link, isAvailable, whatsapp_no
-  ) 
-  VALUES 
-  ('${req.body.prdtName.toUpperCase()}', '${req.body.txtPrice}','${req.body.cboCat}', 
-    '${req.body.cboType}','', '${req.body.cboState.toUpperCase()}', '${req.body.cboLgv.toUpperCase()}', 
-    '${req.body.txtArea.toUpperCase()}','${prdtDesc}','${req.body.cboSize.toUpperCase()}', 
-    '${req.body.cboIsFurnished.toUpperCase()}','${req.body.cboIsShared.toUpperCase()}','YES', 
-    '${req.body.txtPrice}','0','','','0','','1',${usr_id},'0','${req.body.txtStatus.toUpperCase()}','${d}', '${dt}','','${req.body.txtAddress}','${req.body.cboToilet}','${req.body.cboBathe}','${req.body.cboPark}','${req.body.txtVidLink}','${req.body.cboIsAvalaible}',''
-  )`;
-
-    // console.log(query)
-    try {
-      sequelize.query(query, { type: sequelize.QueryTypes.INSERT });
-    } catch (error) {
-      res.status(200).json({
-        success: false,
-        message: "Not Successful",
-      });
-    }
-
-    // myData = {
-    //   product_name: req.body.prdtName.toUpperCase(),
-    //   selling_price: req.body.txtPrice,
-    //   category: req.body.cboCat,
-    //   prdt_type: req.body.cboType,
-    //   prdt_sub_type: "",
-    //   prdt_state: req.body.cboState.toUpperCase(),
-    //   prdt_lgv: req.body.cboLgv.toUpperCase(),
-    //   prdt_area: req.body.txtArea.toUpperCase(),
-    //   prdt_desc: req.body.txtPrdtDesc,
-    //   isFunished: req.body.cboIsFurnished.toUpperCase(),
-    //   isShared: req.body.cboIsShared.toUpperCase(),
-    //   isServiced: "YES",
-    //   unit_sell_price: req.body.txtPrice,
-    //   cost_price: 0,
-    //   model: "",
-    //   brand: "",
-    //   store_id: 0,
-    //   product_code: "100",
-    //   dateid: 1,
-    //   user_id: usr_id,
-    //   vat_amtz: 0,
-    //   flag: req.body.txtStatus.toUpperCase(),
-    //   dated:d,
-    //   timed:dt,
-    //   size: req.body.cboSize.toUpperCase(),
-    //   prdt_address: req.body.txtAddress,
-    //   t_toilet: req.body.cboToilet,
-    //   t_bathroom: req.body.cboBathe,
-    //   parking_space: req.body.cboPark,
-    //   vid_link: req.body.txtVidLink,
-    //   isAvailable: req.body.cboIsAvalaible,
-    //   whatsapp_no: req.body.txtWhasApp,
-    //   //createdAt: d,
-    //   //Token: token,
-    // };
-
-    // console.log(myData)
-    // await cProduct.create(myData);
-    const Max_ID = await cProduct.MaxID("id");
-
-    const act_no1 = 20000 + Max_ID;
-    // //console.log(act_no1);
-    await cProduct.getRecByID("id", act_no1, Max_ID);
-    //const prdtDtls = await cProduct.getProduct(Max_ID);
-    // console.log(userDtls.dataValues);
-    //  res.status(200).json({ message: "Success" });
-    res.status(200).json({
-      success: true,
-      message: "Successful",
-      // data: prdtDtls,
-      // data: {
-      //   id: userDtls.dataValues.id,
-      //   surname: userDtls.dataValues.surname,
-      //   othername: userDtls.dataValues.othername,
-      //   email: userDtls.dataValues.email,
-      //   acct_no: act_no1.toString(),
-      //   Date_Last_Modified: userDtls.dataValues.Date_Last_Modified,
-      //   createdAt: userDtls.dataValues.createdAt,
-      //   account_data: userDtls.dataValues,
-      // },
-    });
-
-    // const UsrzID = await productervice.MaxID("id");
-  }
-});
 
 router.get(
   "/api/v1/unitmeasures",
   verifyAdmin,
   authorizePermission("products", "view_unit"),
   async (req, res) => {
+    const client_id = req.userDtl[0].client_id;
     const prdtid = req.query.id;
 
     try {
       sequelize
         .query(
-          `  SELECT id, product_id, unit_measure, pieces_in, unitprice, costprice FROM tblunit WHERE product_id ='${prdtid}'`,
+          `  SELECT id, product_id, unit_measure, pieces_in, unitprice, costprice FROM tblunit WHERE product_id ='${prdtid}' AND clt_id='${client_id}'`,
           { type: sequelize.QueryTypes.SELECT },
         )
 
@@ -463,7 +343,7 @@ router.get(
   authorizePermission("products"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
-
+const client_id = req.userDtl[0].client_id;
     // SELECT p.id, p.product_name, p.size, p.selling_price, p.cost_price, p.unit_sell_price, p.product_code, p.vat_amtz, p.category, p.model, p.brand , u.surname , u.othername , u.acct_no , p.bar_code, p.piecies_value FROM products p , tblusers u WHERE flag='SHOW' AND p.user_id = u.id ORDER BY p.id DESC
 
     try {
@@ -495,6 +375,7 @@ router.get(
               FROM products p
               JOIN tblunit u ON u.product_id = p.id
               JOIN tblusers uz ON uz.id = p.user_id 
+              WHERE p.clt_id = '${client_id}'
               GROUP BY p.id ORDER BY p.id DESC ;`,
           { type: sequelize.QueryTypes.SELECT },
         )
@@ -533,7 +414,7 @@ router.get(
    //authorizePermission("products"),
   async (req, res) => {
     const perct_value = Number(req.query.pv);
-
+const client_id = req.userDtl[0].client_id;
    // console.log(perct_value);
 
     try {
@@ -551,7 +432,7 @@ router.get(
 
       FROM products
       WHERE mfg_date IS NOT NULL
-        AND expiry_date IS NOT NULL;
+        AND expiry_date IS NOT NULL AND clt_id = '${client_id}';
       `,
         {
           type: sequelize.QueryTypes.SELECT,
@@ -598,35 +479,7 @@ router.get(
   },
 );
 
-router.get("/api/v1/productadmin", verifyAdmin, async (req, res) => {
-  //console.log(req.userDtl[0].id)
-  //   const pages = await cProduct.getAllproductsWhereUserz(req.userDtl[0].id);
-  //  // console.log(pages);
-  //   res.send(pages);
 
-  sequelize
-    .query(
-      `SELECT pr.id, pr.dated, pr.product_name, pr.selling_price, pr.category, pr.prdt_type, pr.prdt_sub_type, pr.prdt_state,pr.prdt_lgv,pr.prdt_area,pr.prdt_desc,pr.isFunished,pr.isShared,pr.isServiced, pr.unit_sell_price,pr.product_code,pr.flag, pr.prdt_address,pr.t_toilet,pr.t_bathroom,pr.parking_space,pr.vid_link,pr.isAvailable,pr.whatsapp_no, pr.pix_paths, u.surname, u.othername,u.phone,u.store_name,pr.size FROM tblusers u, products pr WHERE pr.user_id = u.id  ORDER BY pr.id DESC`,
-      { type: sequelize.QueryTypes.SELECT },
-    )
-
-    .then((results) => {
-      // console.log('Query result:', results);
-      res.status(200).json({
-        success: true,
-        message: "success",
-        total: results.length,
-        data: results,
-      });
-    })
-    .catch((error) => {
-      //console.error('Error fetching data:', error);
-      res.status(200).json({
-        success: false,
-        data: "",
-      });
-    });
-});
 
 router.post("/api/v1/hideprdt", verifyAdmin, async (req, res, next) => {
   await sequelize

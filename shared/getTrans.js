@@ -11,7 +11,8 @@ const ProcessTransact = async (
   lgrID,
   date_Id,
   OrdID,
-  transaction
+  transaction,
+  clientID
 ) => {
   // console.log(desc1 + " "+ prs_ID1 +" " +Atype1 + " "+Crdtamt1+" "+DbtAmt1+" "+ca_id+" "+Usr_id+" "+lgrID+" "+" "+date_Id+" "+OrdID )
 
@@ -40,8 +41,8 @@ const ProcessTransact = async (
     // First transaction insert
     await sequelize.query(
       `INSERT INTO transactions 
-            (dated, Description, PersonID, type, Discount, vatAmt, Debit_Amt, Credit_Amt, Balance_Amt, CA_ID, UserID, ledger_id, Date_Last_Modified, Month, DateID, str_id, trans_id, ord_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (dated, Description, PersonID, type, Discount, vatAmt, Debit_Amt, Credit_Amt, Balance_Amt, CA_ID, UserID, ledger_id, Date_Last_Modified, Month, DateID, str_id, trans_id, ord_id,clt_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
       {
         replacements: [
           d,
@@ -62,6 +63,7 @@ const ProcessTransact = async (
           strID,
           transID,
           Ord_ID,
+          clientID
         ],
         type: sequelize.QueryTypes.INSERT,
         transaction
@@ -127,7 +129,7 @@ const ProcessTransact = async (
   }
 };
 
-const getStockBal = async (prdtid, str_id, transaction) => {
+const getStockBal = async (prdtid, str_id, transaction, clientID) => {
   try {
     const [result] = await sequelize.query(
       `
@@ -136,10 +138,11 @@ const getStockBal = async (prdtid, str_id, transaction) => {
       INNER JOIN orders o ON d.orders_id = o.id
       WHERE d.product_id = ?
         AND o.store = ?
+        AND o.clt_id = ?
       FOR UPDATE
       `,
       {
-        replacements: [prdtid, str_id],
+        replacements: [prdtid, str_id, clientID],
         type: sequelize.QueryTypes.SELECT,
         transaction,
       }
@@ -152,7 +155,7 @@ const getStockBal = async (prdtid, str_id, transaction) => {
   }
 };
 
-const get1Col = async (col, table, id) => {
+const get1Col = async (col, table, id,clientID) => {
   try {
     // Whitelist validation (IMPORTANT)
     const allowedTables = ["persons", "wallets", "products"]; // adjust
@@ -167,7 +170,7 @@ const get1Col = async (col, table, id) => {
     }
 
     const result = await sequelize.query(
-      `SELECT ${col} FROM ${table} WHERE id = ? LIMIT 1`,
+      `SELECT ${col} FROM ${table} WHERE id = ? AND clt_id='${clientID}' LIMIT 1`,
       {
         replacements: [id],
         type: sequelize.QueryTypes.SELECT,
@@ -194,7 +197,8 @@ const ProcessCheckout = async (
   OrdID,
   Tdsc,
   Tvat,
-  transaction
+  transaction,
+  ClientID
   
 ) => {
   // console.log(desc1 + " "+ prs_ID1 +" " +Atype1 + " "+Crdtamt1+" "+DbtAmt1+" "+ca_id+" "+Usr_id+" "+lgrID+" "+" "+date_Id+" "+OrdID )
@@ -248,9 +252,10 @@ const ProcessCheckout = async (
             DateID,
             str_id,
             trans_id,
-            ord_id
+            ord_id,
+            clt_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         {
           replacements: [
             d,
@@ -271,6 +276,7 @@ const ProcessCheckout = async (
             strID,
             0,
             Ord_ID,
+            ClientID
           ],
           type: sequelize.QueryTypes.INSERT,
           transaction,
@@ -296,7 +302,7 @@ const ProcessCheckout = async (
 
       return insertId;
     } catch (err) {
-      console.log(err);
+      //console.log(err);
        await transaction.rollback();
 
       if (err.original?.code === "ER_LOCK_DEADLOCK") {
@@ -378,16 +384,16 @@ const ProcessCheckout = async (
   // }
 };
 
-const QtyBal = async (prdtID, transaction) => {
+const QtyBal = async (prdtID, transaction,clientID) => {
   const [QBal] = await sequelize.query(
         `
        SELECT SUM(stock_bal) AS qtyBal
         FROM order_details
-        WHERE product_id = ?
+        WHERE product_id = ? AND clt_id = ?
         FOR UPDATE
         `,
     {
-      replacements: [prdtID],
+      replacements: [prdtID, clientID],
       type: sequelize.QueryTypes.SELECT,
       transaction,
     },

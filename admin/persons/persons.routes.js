@@ -21,10 +21,11 @@ const uploadMiddleware = require("../middlewares/uploadMiddleware");
 const verifyAdmin = require("../verifyAdmin");
 
 router.get("/api/v1/custBal", verifyAdmin, async (req, res, next) => {
+  const client_id = req.userDtl[0].client_id;
   const pid = req.query.pid;
   sequelize
     .query(
-      `SELECT SUM(Debit_Amt) AS dbt, SUM(credit_Amt) AS crt, SUM(Balance_Amt) AS bal FROM transactions WHERE personid = '${pid}' AND TYPE='PA'`,
+      `SELECT SUM(Debit_Amt) AS dbt, SUM(credit_Amt) AS crt, SUM(Balance_Amt) AS bal FROM transactions WHERE personid = '${pid}' AND TYPE='PA' AND clt_id = '${client_id}'`,
       { type: sequelize.QueryTypes.SELECT },
     )
 
@@ -50,6 +51,7 @@ router.post("/api/v1/updtpass", verifyAdmin, async (req, res, next) => {
   //const txtEmail = req.body.email;
   // const ResetCode = req.body.resetcode;
   // const newpass = req.body.newpass;
+  const client_id = req.userDtl[0].client_id;
 const transaction = await sequelize.transaction();
   const { txtPassW, txtNewPassW, txtCNewPassW } = req.body;
   const BodyDetails = { txtPassW, txtNewPassW, txtCNewPassW };
@@ -131,57 +133,9 @@ const transaction = await sequelize.transaction();
   // });
 });
 
-router.post("/api/v1/updtbvn", verifyAdmin, async (req, res, next) => {
-  //const txtEmail = req.body.email;
-  // const ResetCode = req.body.resetcode;
-  // const newpass = req.body.newpass;
-  let Pid = req.userDtl[0].id;
-  const { txtBVN } = req.body;
-  const BodyDetails = { txtBVN };
-
-  let isBvn = 1;
-
-  const schema = Joi.object({
-    txtBVN: Joi.string()
-      .length(11)
-      .pattern(/^[0-9]+$/)
-      .required()
-      .messages({
-        "string.length": "BVN must be exactly 11 digits",
-        "string.pattern.base": "BVN must contain only numbers",
-        "any.required": "BVN is required",
-        "string.empty": "Valid BVN is required",
-      }),
-  });
-
-  const { error } = schema.validate(BodyDetails);
-  if (error) {
-    return res
-      .status(400)
-      .json({ success: false, message: error.details[0].message });
-  }
-
-  // ======== validate with API here  ===========
-
-  await sequelize.query(
-    `UPDATE persons SET bvn_num = :bvn_num,isveribvn =:isveribvn WHERE id= :id`,
-    {
-      replacements: { bvn_num: req.body.txtBVN, isveribvn: isBvn, id: Pid },
-      type: sequelize.QueryTypes.UPDATE,
-    },
-  );
-
-  const pages = await cPersons.getPerson(Pid);
-  res.status(200).json({
-    success: true,
-    mesage: "success",
-    data: pages,
-    // total:pages.length,
-  });
-});
 
 router.post("/api/v1/custsettings", verifyAdmin, async (req, res, next) => {
-  console.log(req.body);
+ // console.log(req.body);
   const { cboActive1 } = req.body;
   const BodyDetails = { cboActive1 };
 
@@ -442,6 +396,7 @@ transaction.commit()
 //router.post("/api/v1/person",verifyPerson, authorizePermission('ADMIN'),
 router.post("/api/v1/person", async (req, res, next) => {
   const transaction = await sequelize.transaction();
+  
   //const { error, value } = schema.validate(req.body, { abortEarly: false });
   const { error, value } = PersonSchema.validate(req.body);
   //console.log(req.body);
@@ -615,7 +570,8 @@ router.get(
   pagination,
   authorizePermission("ADMIN", "USER"),
   async (req, res) => {
-    const pages = await cPersons.getAllCustomers(req.mypages);
+    const client_id = req.userDtl[0].client_id;
+    const pages = await cPersons.getAllCustomers(req.mypages,client_id);
     res.status(200).json({
       success: true,
       data: pages,
@@ -625,31 +581,5 @@ router.get(
   },
 );
 
-router.get("/api/v1/userDDd", verifyAdmin, async (req, res, next) => {
-  const id = req.userDtl[0].id;
-
-  sequelize
-    .query(
-      `SELECT * , persons.id AS p_id, loan_orders.id AS o_id FROM persons INNER JOIN loan_orders ON persons.id = loan_orders.person_id ORDER BY o_id DESC`,
-      { type: sequelize.QueryTypes.SELECT },
-    )
-
-    .then((results) => {
-      // console.log('Query result:', results);
-      res.status(200).json({
-        success: true,
-        message: "success",
-        total: results.length,
-        data: results,
-      });
-    })
-    .catch((error) => {
-      //console.error('Error fetching data:', error);
-      res.status(200).json({
-        success: false,
-        data: "",
-      });
-    });
-});
 
 module.exports = router;

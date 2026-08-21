@@ -87,9 +87,18 @@ router.post(
   async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
-     // console.log(req.body);
+      // console.log(req.body);
 
-      const {surname,othername,email,phone,password,regNo,company_name,clientid} = req.body
+      const {
+        surname,
+        othername,
+        email,
+        phone,
+        password,
+        regNo,
+        company_name,
+        clientid,
+      } = req.body;
       // const { error, value } = UserSchema.validate(req.body); // Validation
 
       // if (error) {
@@ -137,7 +146,7 @@ router.post(
             "string.empty": "Password Required",
             "any.required": "Password Required ",
           }),
-       
+
         phone: Joi.string()
           .pattern(/^\d{11}$/)
           .required()
@@ -148,7 +157,13 @@ router.post(
           }),
       });
 
-      const { error } = schema.validate({ surname, othername, email,password,phone });
+      const { error } = schema.validate({
+        surname,
+        othername,
+        email,
+        password,
+        phone,
+      });
       if (error) {
         return res.status(400).json({
           success: false,
@@ -243,7 +258,8 @@ router.get(
   pagination,
   authorizePermission("users"),
   async (req, res) => {
-    const pages = await cUser.getAllUsers(req.mypages);
+    const client_id = req.userDtl[0].client_id;
+    const pages = await cUser.getAllUsers(req.mypages, client_id);
     res.status(200).json({
       success: true,
       data: pages,
@@ -252,73 +268,14 @@ router.get(
   },
 );
 
-router.post("/api/v1/changepass", async (req, res, next) => {
-  const txtEmail = req.body.email;
-  const ResetCode = req.body.resetcode;
-  const newpass = req.body.newpass;
-
-  const myRes = await cUser.getChangePass(txtEmail, ResetCode, newpass);
-
-  if (myRes == "Failed") {
-    res.status(200).json({
-      success: false,
-      message: "inValid Reset Code",
-    });
-  }
-  res.status(200).json({
-    success: true,
-    message: "Password Changed, Please  Login",
-  });
-});
-
-router.post("/api/v1/reset", async (req, res, next) => {
-  // Update
-
-  const txtEmail = req.body.email;
-  const ResetCode = Tools.getUniqueId();
-
-  await cUser.getResetPass(txtEmail, ResetCode);
-
-  let bdymsg = "";
-  let MyMail = "tristian.hickle9@ethereal.email";
-  //let MyMail=req.body.txtEmail;
-  // bdymsg +='<a href="localhost:5000/verify/'+user_ID+'" > Verify </a>';
-  bdymsg +=
-    "<style> #link1 {background-color: #04AA6D;border: none;color: white;padding: 16px 32px;text-decoration: none;margin: 4px 2px;cursor: pointer;}</style>";
-
-  bdymsg +=
-    '<h2 style="text-align:center;font-weight:bold">Reset Password </h2>';
-  bdymsg +=
-    '<p style="text-align:center;font-weight:bold">Click to Change your password</p>';
-  bdymsg +=
-    '<a href="https://safeafrica.ng/veri_account.php?id=' +
-    ResetCode +
-    '"  id="link1" style="text-align:center" class=""> Change Password </a>';
-
-  SndMail.getSendMail(bdymsg, MyMail, "Password Reset", "");
-
-  res.status(200).json({
-    success: true,
-    message: "Password Reset, Please check your mail to proceed",
-  });
-
-  // res.status(200).json({
-  //   success:true,
-  //   message:"Password Reset"
-  // })
-});
-
 router.post(
   "/api/v1/user",
   verifyAdmin,
   authorizePermission("users"),
   async (req, res) => {
     const transaction = await sequelize.transaction();
+    const client_id = req.userDtl[0].client_id;
     try {
-      //console.log("Create user request:", req.body);
-
-      // return
-
       const { error, value } = UserSchema.validate(req.body); // Validation
 
       if (error) {
@@ -382,6 +339,7 @@ router.post(
         local_gvt: "",
         country: "",
         isVeri: "NO",
+        client_id:client_id
       };
 
       // Create user

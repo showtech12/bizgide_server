@@ -5,6 +5,9 @@ class Persons extends Model {}
 
 Persons.init(
   {
+    clt_id: {
+      type: DataTypes.INTEGER,
+    },
     contact_type: {
       type: DataTypes.STRING,
     },
