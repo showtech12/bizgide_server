@@ -12,7 +12,7 @@ const ProcessTransact = async (
   date_Id,
   OrdID,
   transaction,
-  clientID
+  clientID,
 ) => {
   // console.log(desc1 + " "+ prs_ID1 +" " +Atype1 + " "+Crdtamt1+" "+DbtAmt1+" "+ca_id+" "+Usr_id+" "+lgrID+" "+" "+date_Id+" "+OrdID )
 
@@ -63,16 +63,16 @@ const ProcessTransact = async (
           strID,
           transID,
           Ord_ID,
-          clientID
+          clientID,
         ],
         type: sequelize.QueryTypes.INSERT,
-        transaction
+        transaction,
       },
     );
 
     let ResMAxID = await sequelize.query(
       `SELECT MAX(id) AS id FROM transactions`,
-      { type: sequelize.QueryTypes.SELECT,transaction },
+      { type: sequelize.QueryTypes.SELECT, transaction },
     );
 
     var maxID = Number(ResMAxID[0].id);
@@ -82,7 +82,7 @@ const ProcessTransact = async (
 
     await sequelize.query(
       `UPDATE transactions SET trans_id ='${TrandID}' WHERE id ='${maxID}'`,
-      { type: sequelize.QueryTypes.UPDATE,transaction },
+      { type: sequelize.QueryTypes.UPDATE, transaction },
     );
 
     return TrandID;
@@ -145,7 +145,7 @@ const getStockBal = async (prdtid, str_id, transaction, clientID) => {
         replacements: [prdtid, str_id, clientID],
         type: sequelize.QueryTypes.SELECT,
         transaction,
-      }
+      },
     );
 
     return Number(result.sbal);
@@ -155,7 +155,7 @@ const getStockBal = async (prdtid, str_id, transaction, clientID) => {
   }
 };
 
-const get1Col = async (col, table, id,clientID) => {
+const get1Col = async (col, table, id, clientID) => {
   try {
     // Whitelist validation (IMPORTANT)
     const allowedTables = ["persons", "wallets", "products"]; // adjust
@@ -189,12 +189,7 @@ const getIdByColumn = async (table, searchColumn, searchValue, clientID) => {
     // Whitelist validation
     const allowedTables = ["persons", "wallets", "products"];
 
-    const allowedColumns = [
-      "id",
-      "la_id",
-      "name",
-      "balance",
-    ];
+    const allowedColumns = ["id", "la_id", "name", "balance"];
 
     if (!allowedTables.includes(table)) {
       throw new Error("Invalid table name");
@@ -213,11 +208,10 @@ const getIdByColumn = async (table, searchColumn, searchValue, clientID) => {
       {
         replacements: [searchValue, clientID],
         type: sequelize.QueryTypes.SELECT,
-      }
+      },
     );
 
     return result.length ? result[0].id : null;
-
   } catch (error) {
     console.error("Error fetching ID:", error);
     throw error;
@@ -238,8 +232,7 @@ const ProcessCheckout = async (
   Tdsc,
   Tvat,
   transaction,
-  ClientID
-  
+  ClientID,
 ) => {
   // console.log(desc1 + " "+ prs_ID1 +" " +Atype1 + " "+Crdtamt1+" "+DbtAmt1+" "+ca_id+" "+Usr_id+" "+lgrID+" "+" "+date_Id+" "+OrdID )
 
@@ -316,7 +309,7 @@ const ProcessCheckout = async (
             strID,
             0,
             Ord_ID,
-            ClientID
+            ClientID,
           ],
           type: sequelize.QueryTypes.INSERT,
           transaction,
@@ -343,7 +336,7 @@ const ProcessCheckout = async (
       return insertId;
     } catch (err) {
       //console.log(err);
-       await transaction.rollback();
+      await transaction.rollback();
 
       if (err.original?.code === "ER_LOCK_DEADLOCK") {
         retries--;
@@ -424,9 +417,9 @@ const ProcessCheckout = async (
   // }
 };
 
-const QtyBal = async (prdtID, transaction,clientID) => {
+const QtyBal = async (prdtID, transaction, clientID) => {
   const [QBal] = await sequelize.query(
-        `
+    `
        SELECT SUM(stock_bal) AS qtyBal
         FROM order_details
         WHERE product_id = ? AND clt_id = ?
@@ -444,27 +437,99 @@ const QtyBal = async (prdtID, transaction,clientID) => {
 };
 
 const checkoutWithRetry = async (fn, retries = 3) => {
-  //let retries = 3;
 
-  while (retries) {
+  let attempt = 0;
+
+  while (attempt < retries) {
+
+    let transaction = null;
+
     try {
-      return await fn();
+
+      attempt++;
+
+      // NEW transaction for this attempt
+      transaction = await sequelize.transaction();
+
+      // Pass transaction into the callback
+      const result = await fn(transaction);
+
+      // Commit only after EVERYTHING succeeds
+      await transaction.commit();
+
+      return result;
+
     } catch (err) {
-      if (err.original?.code === "ER_LOCK_DEADLOCK") {
-        retries--;
 
-        if (!retries) throw err;
+      console.error(
+        `Checkout attempt ${attempt} failed:`,
+        err.message
+      );
 
-        await new Promise((r) => setTimeout(r, 150));
+      // Rollback only if transaction is still active
+      if (
+        transaction &&
+        !transaction.finished
+      ) {
+        try {
+          await transaction.rollback();
+        } catch (rollbackError) {
+          console.error(
+            "Rollback error:",
+            rollbackError.message
+          );
+        }
+      }
+
+      // Only retry deadlocks
+      if (
+        err.original?.code === "ER_LOCK_DEADLOCK" ||
+        err.parent?.code === "ER_LOCK_DEADLOCK"
+      ) {
+
+        if (attempt >= retries) {
+          throw err;
+        }
+
+        // Small delay before retry
+        await new Promise((resolve) =>
+          setTimeout(resolve, 150 * attempt)
+        );
 
         continue;
       }
 
+      // Don't retry validation/business errors
       throw err;
     }
   }
 };
 
+const checkIdempotencyKey = async (idempotency_key, clientID, transaction) => {
+  if (!idempotency_key) {
+    return false;
+  }
+
+  const existing = await sequelize.query(
+    `
+      SELECT id, invoice_no
+      FROM orders
+      WHERE idempotency_key = ?
+        AND clt_id = ?
+      LIMIT 1
+    `,
+    {
+      replacements: [idempotency_key, clientID],
+      type: sequelize.QueryTypes.SELECT,
+      transaction,
+    }
+  );
+
+ // return existing.length > 0;
+  return existing.length > 0
+    ? existing[0]
+    : null;
+};
 // async function checkoutWithRetry(fn){
 
 // }
@@ -477,4 +542,5 @@ module.exports = {
   checkoutWithRetry,
   QtyBal,
   getIdByColumn,
+  checkIdempotencyKey ,
 };

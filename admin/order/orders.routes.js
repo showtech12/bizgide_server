@@ -3623,9 +3623,14 @@ router.post(
 
         // Second Leg – Debit Customer Ledger
         desc = txtDesc;
-         
-        const personIdSub = await getTransact.getIdByColumn("persons", "la_id", 14, client_id);
-       // const cashidA = await getTransact.get1Col("la_id", "persons", personIdSub,client_id);
+
+        const personIdSub = await getTransact.getIdByColumn(
+          "persons",
+          "la_id",
+          14,
+          client_id,
+        );
+        // const cashidA = await getTransact.get1Col("la_id", "persons", personIdSub,client_id);
         const cashidA = 14;
 
         //console.log(personIdSub);
@@ -3865,78 +3870,58 @@ router.post(
   },
 );
 
-router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
-  // console.log(req.body);
+router.post("/api/v1/gettransact", verifyAdmin, async (req, res) => {
+  console.log(req.body);
+
   const client_id = req.userDtl[0].client_id;
-  const transaction = await sequelize.transaction();
-  const {
-    payVia,
-    AmtPaid,
-    CartType,
-    orderMode,
-    customer,
-    cart,
-    TAmtPayable,
-    TDsc,
-    AllPays,
-  } = req.body;
+  const str_id = req.userDtl[0].store_id;
+  const usr_id = req.userDtl[0].id;
+
+  const { idempotency_key, sequence_no, created_at } = req.body;
+
+  const requestPayload = req.body.payload || req.body;
+
+  // ===============================
+  // PAYMENT VALIDATION
+  // ===============================
 
   const paymentSchema = Joi.object({
-    payVia: Joi.number().integer().positive().required().messages({
-      "number.base": "Payment wallet must be a number",
-      "number.positive": "Invalid payment wallet",
-      "any.required": "Payment wallet is required",
-    }),
+    payVia: Joi.number().integer().positive().required(),
 
-    AmtPaid: Joi.number().min(0).precision(2).required().messages({
-      "number.base": "Amount paid must be a number",
-      "number.min": "Amount cannot be negative",
-      "any.required": "Amount paid is required",
-    }),
+    AmtPaid: Joi.number().min(0).precision(2).required(),
+
+    payViaText: Joi.string().allow("").optional(),
   });
 
-  const schema = Joi.object({
-    cart: Joi.array().min(1).required().messages({
-      "array.base": "Cart must be an array",
-      "array.min": "Cart cannot be empty",
-    }),
+  // ===============================
+  // MAIN VALIDATION
+  // ===============================
 
-    // customer: Joi.array()
-    // .min(1)
-    // .required()
-    // .messages({
-    //   "array.base": "Customer Data must be an array",
-    //   "array.min": "Customer Data cannot be empty"
-    // }),
+  const schema = Joi.object({
+    cart: Joi.array().min(1).required(),
 
     customer: Joi.object().allow(null, "").optional(),
 
     AllPays: Joi.array()
       .items(paymentSchema)
       .min(1)
-      .unique("payVia") // prevents duplicate wallets
-      .required()
-      .messages({
-        "array.base": "Payments must be an array",
-        "array.min": "At least one payment is required",
-        "array.unique": "Duplicate payment wallets are not allowed",
-      }),
-
-    CartType: Joi.string()
-      //.valid("CUSTOMER", "WALKIN")
+      .unique("payVia")
       .required(),
 
-    orderMode: Joi.string()
-      // .valid("Sold", "Held")
-      .required(),
+    CartType: Joi.string().required(),
+
+    orderMode: Joi.string().required(),
 
     TAmtPayable: Joi.number().positive().required(),
 
     TDsc: Joi.number().min(0).required(),
   });
 
-  //const { error } = schema.validate({ payVia, AmtPaid, CartType, orderMode });
-  const { error, value } = schema.validate(req.body, {
+  // ===============================
+  // VALIDATE
+  // ===============================
+
+  const { error, value } = schema.validate(requestPayload, {
     abortEarly: false,
     stripUnknown: true,
   });
@@ -3948,56 +3933,108 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
     });
   }
 
-  // if (error) {
-  //   return res.status(400).json({ success: false, message: error.details[0].message });
-  // }
+  const { CartType, orderMode, customer, cart, TAmtPayable, TDsc, AllPays } =
+    value;
 
-  const str_id = req.userDtl[0].store_id;
-  // const or_mode = "stockin";
   const d = new Date().toISOString().split("T")[0];
   const dt = new Date();
-  const usr_id = req.userDtl[0].id;
-  let resData = null;
 
-  // const transaction = await sequelize.transaction({
-  //   isolationLevel: sequelize.Transaction.ISOLATION_LEVELS.READ_COMMITTED,
-  // });
+  try {
+    // IMPORTANT:
+    // checkoutWithRetry must create a NEW transaction
+    // for every attempt.
 
-  //const transaction = await sequelize.transaction();
+    const result = await getTransact.checkoutWithRetry(async (transaction) => {
+      // ==========================================
+      // STEP 1: IDEMPOTENCY CHECK
+      // ==========================================
 
-  await getTransact.checkoutWithRetry(async () => {
-    try {
-      // STEP 2: Insert into orders table
+      if (idempotency_key) {
+        const existingOrder = await getTransact.checkIdempotencyKey(
+          idempotency_key,
+          client_id,
+          transaction,
+        );
+
+        if (existingOrder) {
+          return {
+            alreadyProcessed: true,
+            order_id: existingOrder.id,
+            invoice_no: existingOrder.invoice_no,
+            idempotency_key,
+          };
+        }
+      }
+
+      // ==========================================
+      // STEP 2: INSERT ORDER
+      // ==========================================
+
       const [insertResult] = await sequelize.query(
-        `INSERT INTO orders (persons_id, order_mode, dates, store, users_id, transact_id,clt_id)
-              VALUES (?, ?, ?, ?, ?, '0',?)`,
+        `
+            INSERT INTO orders
+            (
+              persons_id,
+              order_mode,
+              dates,
+              store,
+              users_id,
+              transact_id,
+              clt_id,
+              idempotency_key
+            )
+            VALUES (?, ?, ?, ?, ?, '0', ?, ?)
+            `,
         {
-          replacements: [customer.id, orderMode, d, str_id, usr_id, client_id],
+          replacements: [
+            customer.id,
+            orderMode,
+            d,
+            str_id,
+            usr_id,
+            client_id,
+            idempotency_key || null,
+          ],
           type: sequelize.QueryTypes.INSERT,
           transaction,
         },
       );
 
-      const orMax = insertResult; // Inserted order ID
-      //console.log(orMax);
+      const orMax = insertResult;
 
-      // STEP 3: Update invoice number
+      // ==========================================
+      // STEP 3: INVOICE NUMBER
+      // ==========================================
+
       const inv_no = 12000 + Number(orMax);
 
-      await sequelize.query(`UPDATE orders SET invoice_no = ? WHERE id = ?`, {
-        replacements: [inv_no, orMax],
-        type: sequelize.QueryTypes.UPDATE,
-        transaction,
-      });
+      await sequelize.query(
+        `
+          UPDATE orders
+          SET invoice_no = ?
+          WHERE id = ?
+          `,
+        {
+          replacements: [inv_no, orMax],
+          type: sequelize.QueryTypes.UPDATE,
+          transaction,
+        },
+      );
+
+      let resData = null;
+
+      // ==========================================
+      // CUSTOMER SALE
+      // ==========================================
 
       if (CartType === "CUSTOMER") {
-        //     $typez ="RECEIPT";
-        //==================== First Leg =====================
-        let desc = `Sold to ${customer.full_name} On Credit `;
-        let ca_id = 0;
+        let desc = `Sold to ${customer.full_name} On Credit`;
 
-        //const  penalty = addbal * cost;
         const dateId = await getDateid.getDateID(client_id);
+
+        // ========================================
+        // FIRST LEG
+        // ========================================
 
         const TxID = await getTransact.ProcessCheckout(
           desc,
@@ -4016,14 +4053,26 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
           client_id,
         );
 
+        // ========================================
+        // UPDATE ORDER TRANSACTION ID
+        // ========================================
+
         await sequelize.query(
-          `UPDATE orders SET transact_id = ? WHERE id = ?`,
+          `
+            UPDATE orders
+            SET transact_id = ?
+            WHERE id = ?
+            `,
           {
             replacements: [TxID, orMax],
             type: sequelize.QueryTypes.UPDATE,
             transaction,
           },
         );
+
+        // ========================================
+        // SECOND LEG
+        // ========================================
 
         desc = `Sales Ledger Debited For ${customer.full_name}`;
 
@@ -4044,23 +4093,22 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
           client_id,
         );
 
-        //===========================PAYMENT POST ================================
+        // ========================================
+        // PAYMENT POSTING
+        // ========================================
 
-        for (let item of AllPays) {
-          //console.log(item.AmtPaid);
-          //AmtPaid = Number(item.AmtPaid);
-
+        for (const item of AllPays) {
           const cashid = await getTransact.get1Col(
             "la_id",
             "persons",
             item.payVia,
             client_id,
           );
-          let desc = `Cash Paid By ${customer.full_name} Via ${item.payViaText}`;
-          let TDsc = 0;
+
+          const paymentDesc = `Cash Paid By ${customer.full_name} Via ${item.payViaText}`;
 
           await getTransact.ProcessCheckout(
-            desc,
+            paymentDesc,
             item.payVia,
             "CA",
             0,
@@ -4070,14 +4118,14 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
             cashid,
             dateId,
             orMax,
-            TDsc,
+            0,
             0,
             transaction,
             client_id,
           );
 
           await getTransact.ProcessCheckout(
-            desc,
+            paymentDesc,
             customer.id,
             "PA",
             Number(item.AmtPaid),
@@ -4087,84 +4135,115 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
             cashid,
             dateId,
             orMax,
-            TDsc,
+            0,
             0,
             transaction,
             client_id,
           );
         }
 
+        // ========================================
+        // SORT CART
+        // ========================================
+
         const sortedCart = [...cart].sort((a, b) => a.id - b.id);
-        for (let item of sortedCart) {
-          // let QtyType = item.prdtType;
-          let QtyType = item.prdtType; // e.g. "BOX"
+
+        // ========================================
+        // PROCESS CART
+        // ========================================
+
+        for (const item of sortedCart) {
+          const QtyType = item.prdtType;
 
           const selectedUnit = item.units.find(
             (u) => u.unit_measure === QtyType.toUpperCase(),
           );
 
           if (!selectedUnit) {
-            // console.log("Unit not found for", item.product_name);
-            continue;
+            throw new Error(`Unit ${QtyType} not found for product ${item.id}`);
           }
 
-          let BaseQty = Number(item.qty * item.unitsInSelected);
-          let Qty = Number(item.qty);
+          const BaseQty = Number(item.qty * item.unitsInSelected);
+
+          const Qty = Number(item.qty);
+
           const costPrice = Number(selectedUnit.costprice);
+
           const unit_price = Number(selectedUnit.unitprice);
+
           const sellPrice = Number(item.price);
+
           const discount = Number(item.discount) || 0;
-          //const piecesValue = Number(item.piecies_value);
-          let sellp = 0;
-          sellp = Qty * sellPrice - discount;
 
-          // Normalize quantity for PIECES
-          // if (item.prdtType === "pieces" && piecesValue > 0) {
-          //   Qty = Qty / piecesValue;
-          //   QtyType = "PIECES";
-          //   sellp = Qty * sellPrice * piecesValue - discount;
-          // }
+          const sellp = Qty * sellPrice - discount;
 
-          // Calculations (always use normalized Qty)
           const costp = Qty * costPrice;
 
           const gain = sellp - costp;
 
-          const orderMode = "Sold";
+          const orderModeDetail = "Sold";
+
           const stk_bal = -BaseQty;
+
           const DBQtyBal = await getTransact.QtyBal(
             item.id,
             transaction,
             client_id,
           );
+
           const qtyBal = Number(DBQtyBal) - BaseQty;
-          //  const qtyBal = Number(item.qbal) - BaseQty;
+
           const stkBalVal = -sellp;
 
-          //console.log({ Qty, sellp, costp, gain });
+          // ======================================
+          // INSERT ORDER DETAIL
+          // ======================================
 
-          const [ordtlID] = await await sequelize.query(
-            `INSERT INTO order_details (
-                            orders_id, product_id, quantity, sales_price, discount, total_line, gain,
-                            unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
-                            vats_amount, date_time, total_costline, manifacture_date, expire_date,
-                            commisn_amt, stock_bal_value, qty_type,clt_id
-                          )
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
+          const [ordtlID] = await sequelize.query(
+            `
+                INSERT INTO order_details
+                (
+                  orders_id,
+                  product_id,
+                  quantity,
+                  sales_price,
+                  discount,
+                  total_line,
+                  gain,
+                  unit_price,
+                  time_id,
+                  basket_count,
+                  dated,
+                  order_mode,
+                  stock_bal,
+                  qty_bal,
+                  vats_amount,
+                  date_time,
+                  total_costline,
+                  manifacture_date,
+                  expire_date,
+                  commisn_amt,
+                  stock_bal_value,
+                  qty_type,
+                  clt_id
+                )
+                VALUES
+                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `,
             {
               replacements: [
-                orMax, // orders_id
-                item.id, // product_id
-                item.qty, // ✅ normalized quantity
-                sellPrice, // sales_price
-                discount, // discount
-                sellp, // total_line
-                gain, // gain
+                orMax,
+                item.id,
+                item.qty,
+                sellPrice,
+                discount,
+                sellp,
+                gain,
                 unit_price,
                 dateId,
                 1,
                 d,
-                orderMode,
+                orderModeDetail,
                 stk_bal,
                 qtyBal,
                 0,
@@ -4182,22 +4261,32 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
             },
           );
 
-          if (ordtlID.affectedRows === 0) {
+          if (!ordtlID || ordtlID.affectedRows === 0) {
             throw new Error("Insufficient stock");
           }
         }
 
+        // ========================================
+        // GET CUSTOMER BALANCE
+        // ========================================
+
         const ledgerResult = await sequelize.query(
-          `SELECT SUM(balance_amt) AS bal FROM transactions WHERE personid=? AND clt_id ='${client_id}'`,
+          `
+              SELECT
+                COALESCE(SUM(balance_amt), 0) AS bal
+              FROM transactions
+              WHERE personid = ?
+                AND clt_id = ?
+              `,
           {
-            replacements: [customer.id],
+            replacements: [customer.id, client_id],
             type: sequelize.QueryTypes.SELECT,
             transaction,
           },
         );
 
-        // Extract the actual balance number
-        const LedgerBal = ledgerResult[0]?.bal || 0;
+        const LedgerBal = Number(ledgerResult[0]?.bal || 0);
+
         const staffUser =
           req.userDtl[0].surname + " " + req.userDtl[0].othername;
 
@@ -4207,33 +4296,56 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
           staffUser,
           InvNo: inv_no,
         };
-
-        // console.log(resData);
-
-        // return resData
       }
 
-      // Everything succeeded
-      await transaction.commit();
-      //console.log(resData)
+      // ==========================================
+      // RETURN RESULT
+      // checkoutWithRetry WILL COMMIT
+      // ==========================================
+
+      return {
+        alreadyProcessed: false,
+        order_id: orMax,
+        invoice_no: inv_no,
+        respData: resData,
+      };
+    });
+
+    // ============================================
+    // ALREADY PROCESSED
+    // ============================================
+
+    if (result.alreadyProcessed) {
       return res.status(200).json({
         success: true,
-        message: "check Out Successfull",
-        respData: resData,
-        // order_id: orMax,
-        // invoice_no: inv_no
-      });
-    } catch (error) {
-      // Something failed
-      await transaction.rollback();
-      //console.error(error);
-      return res.status(500).json({
-        success: false,
-        message: "Error creating order",
-        error: error.message,
+        alreadyProcessed: true,
+        message: "Transaction already processed",
+        order_id: result.order_id,
+        invoice_no: result.invoice_no,
+        idempotency_key: result.idempotency_key,
       });
     }
-  });
+
+    // ============================================
+    // SUCCESS
+    // ============================================
+
+    return res.status(200).json({
+      success: true,
+      message: "Checkout Successful",
+      respData: result.respData,
+      order_id: result.order_id,
+      invoice_no: result.invoice_no,
+    });
+  } catch (error) {
+    console.error("Checkout error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Error creating order",
+      error: error.message,
+    });
+  }
 });
 
 router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
@@ -4745,6 +4857,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
         }
       }
       await transaction.commit();
+      
       return res.status(200).json({
         success: true,
         message: "Successfull",
