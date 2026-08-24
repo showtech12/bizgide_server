@@ -184,6 +184,46 @@ const get1Col = async (col, table, id,clientID) => {
   }
 };
 
+const getIdByColumn = async (table, searchColumn, searchValue, clientID) => {
+  try {
+    // Whitelist validation
+    const allowedTables = ["persons", "wallets", "products"];
+
+    const allowedColumns = [
+      "id",
+      "la_id",
+      "name",
+      "balance",
+    ];
+
+    if (!allowedTables.includes(table)) {
+      throw new Error("Invalid table name");
+    }
+
+    if (!allowedColumns.includes(searchColumn)) {
+      throw new Error("Invalid column name");
+    }
+
+    const result = await sequelize.query(
+      `SELECT id 
+       FROM ${table} 
+       WHERE ${searchColumn} = ? 
+       AND clt_id = ? 
+       LIMIT 1`,
+      {
+        replacements: [searchValue, clientID],
+        type: sequelize.QueryTypes.SELECT,
+      }
+    );
+
+    return result.length ? result[0].id : null;
+
+  } catch (error) {
+    console.error("Error fetching ID:", error);
+    throw error;
+  }
+};
+
 const ProcessCheckout = async (
   desc1,
   prs_ID1,
@@ -436,4 +476,5 @@ module.exports = {
   get1Col,
   checkoutWithRetry,
   QtyBal,
+  getIdByColumn,
 };

@@ -5,6 +5,9 @@ class Products extends Model {}
 
 Products.init(
   {
+    clt_id: {
+      type: DataTypes.INTEGER,
+    },
     product_name: {
       type: DataTypes.STRING,
     },

@@ -260,6 +260,7 @@ router.get(
   async (req, res) => {
     const client_id = req.userDtl[0].client_id;
     const pages = await cUser.getAllUsers(req.mypages, client_id);
+    console.log(pages)
     res.status(200).json({
       success: true,
       data: pages,

@@ -8,13 +8,15 @@ const pagination = require("../shared/pagination");
 const bcrypt = require("bcryptjs");
 const sequelize = require("../../config/database");
 const { QueryTypes } = require("sequelize");
+const mPersons = require("../../admin/persons/persons.model");
+const mRoles = require("../roles/roles.model");
 
 router.post("/api/v2/register", async (req, res) => {
- // console.log(req.body);
+  // console.log(req.body);
   //console.log(req.userDtl[0].id);
- // return;
+  const transaction = await sequelize.transaction();
   try {
-   //console.log("Create Register request:", req.body);
+    //console.log("Create Register request:", req.body);
 
     const { error, value } = RegisterClientSchema.validate(req.body); // Validation
     console.log(value);
@@ -48,14 +50,12 @@ router.post("/api/v2/register", async (req, res) => {
     const nowISO = new Date().toISOString();
     const regDate = Tools.getNowDate();
 
-   
-
     const myData = {
       ...value,
-        subscription_plan:"Trial",
-        status:"Active",
-        reffer_by:value.refferByID
-    }
+      subscription_plan: "Trial",
+      status: "Active",
+      reffer_by: value.refferByID,
+    };
 
     //console.log(myData)
     await cClient.create(myData);
@@ -66,19 +66,219 @@ router.post("/api/v2/register", async (req, res) => {
     await cClient.getRecByID("id", acct_no, client_ID);
 
     const userDetails = await cClient.getOne(client_ID);
+    //============================================
 
+    const Subsdiary = [
+      {
+        la_id: 1,
+        full_name: "PURCHASES ACCOUNT",
+        contact_type: "SUBSIDIARY",
+        ptype: "CA",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+      {
+        la_id: 2,
+        full_name: "SALES ACCOUNT",
+        contact_type: "SUBSIDIARY",
+        ptype: "CA",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+      {
+        la_id: 3,
+        full_name: "RETURN INWARD",
+        contact_type: "SUBSIDIARY",
+        ptype: "CA",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+      {
+        la_id: 4,
+        full_name: "RETURN OUTWARD",
+        contact_type: "SUBSIDIARY",
+        ptype: "CA",
+        clt_id: client_ID,
+        store_id: 1,
+      },
+      {
+        la_id: 5,
+        full_name: "CASH ACCOUNT",
+        contact_type: "SUBSIDIARY",
+        ptype: "CA",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+      {
+        la_id: 7,
+        full_name: "ADMINISTRATIVE COST",
+        contact_type: "SUBSIDIARY",
+        ptype: "CA",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+      {
+        la_id: 7,
+        full_name: "OPERATION COST",
+        contact_type: "SUBSIDIARY",
+        ptype: "CA",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+      {
+        la_id: 7,
+        full_name: "FINANCE COST",
+        contact_type: "SUBSIDIARY",
+        ptype: "CA",
+        clt_id: client_ID,
+        store_id: 1,
+      },
+      {
+        la_id: 7,
+        full_name: "OTHER EXPENSES",
+        contact_type: "SUBSIDIARY",
+        ptype: "CA",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+      {
+        la_id: 8,
+        full_name: "LAND",
+        contact_type: "SUBSIDIARY",
+        ptype: "CA",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+      {
+        la_id: 13,
+        full_name: "CAPITAL",
+        contact_type: "SUBSIDIARY",
+        ptype: "CA",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+      {
+        la_id: 14,
+        full_name: "OTHER INCOME",
+        contact_type: "SUBSIDIARY",
+        ptype: "CA",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+      {
+        la_id: 0,
+        full_name: "CASH SALES",
+        contact_type: "CUSTOMER",
+        ptype: "PA",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+      {
+        la_id: 0,
+        full_name: "SUPPLIERS",
+        contact_type: "SUPPLIERS",
+        ptype: "PA",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+      {
+        la_id: 0,
+        full_name: value.company_name,
+        contact_type: "STOCKIN",
+        ptype: "",
+        clt_id: client_ID,
+        store_id: 1,
+        flg: "SHOW",
+      },
+    ];
+
+    await mPersons.bulkCreate(Subsdiary, { transaction });
+    //cPersons
+    //==============================================
+    const Roles = [
+      {
+        rolename: "ADMIN",
+        permission:
+          "dashboard,ledger,pos,stockin,purchase,returnin,returnout,reprint,expenses,capital,users,products,view_unit,all_inventory,backup,cashbook,customeranalysis,evacuate,expire_noti,inventory,jornals,ledgerbal,otherincome,post,prev,saleanalysis,salesincome,salesrecord,settings,statement,stockout,suppliers,trailbal,cusanalys,uptroles,accountreport,journals",
+        clt_id: client_ID,
+      },
+
+      {
+        rolename: "CASHIER",
+        permission:
+          "dashboard,ledger,pos,purchase,returnin,returnout,reprint,expenses,all_inventory,customeranalysis,products",
+        clt_id: client_ID,
+      },
+
+      {
+        rolename: "USER",
+        permission: "dashboard,ledger,pos,all_inventory",
+        clt_id: client_ID,
+      },
+    ];
+     await mRoles.bulkCreate(Roles, { transaction });
+    //============================================
+
+    await sequelize.query(
+      `
+    INSERT INTO tblsettings
+      (
+        validate_stockbal,
+        expiring_perct,
+        stock_out_perct,
+        profit_margin_perct,
+        currency,
+        clt_id
+      )
+    VALUES
+      (
+        :validate_stockbal,
+        :expiring_perct,
+        :stock_out_perct,
+        :profit_margin_perct,
+        :currency,
+        :clt_id
+      )
+  `,
+      {
+        replacements: {
+          validate_stockbal: "YES",
+          expiring_perct: 30,
+          stock_out_perct: 90,
+          profit_margin_perct: 10,
+          currency: "NGN",
+          clt_id: client_ID,
+        },
+        type: sequelize.QueryTypes.INSERT,
+        transaction,
+      },
+    );
+    //===========================================
+    await transaction.commit();
     return res.status(200).json({
       success: true,
       message: "Successfully",
       regno: acct_no,
-      cleintID: client_ID
+      cleintID: client_ID,
     });
   } catch (err) {
+    await transaction.rollback();
     console.error(err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
 
 router.get(
   "/api/v2/register",
@@ -86,7 +286,6 @@ router.get(
   //authorizePermission("expenses"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
-    
 
     let qry = ``;
 

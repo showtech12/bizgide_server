@@ -3,7 +3,7 @@ const NotFoundException = require("../../Exceptions/Exception");
 const Tools = require("../../shared/commonTools");
 const bcryptjs = require("bcryptjs");
 
-const create = async (body,transaction) => {
+const create = async (body, transaction) => {
   await user.create(body, transaction);
 };
 
@@ -20,32 +20,27 @@ const getRecByID = async (col, colval, id) => {
   // return orderRec;
 };
 
-const getChangePass = async(Email,ResetCode,newpass)=>{
+const getChangePass = async (Email, ResetCode, newpass) => {
   const user1 = await user.findOne({ where: { email: Email } });
   //console.log(user1.PassWord)
-  if (user1.PassWord == ResetCode){
-        user1.PassWord = newpass;
-        await user1.save();
-  }else{
-    return "Failed"
+  if (user1.PassWord == ResetCode) {
+    user1.PassWord = newpass;
+    await user1.save();
+  } else {
+    return "Failed";
   }
-}
+};
 
-
-
-const getResetPass = async(Email,ResetCode)=>{
-  
+const getResetPass = async (Email, ResetCode) => {
   const user1 = await user.findOne({ where: { email: Email } });
   //console.log(user1)
   user1.PassWord = ResetCode;
   await user1.save();
+};
 
-}
-
-
-const findByEmail = async(email)=>{
-    const userDtls = await user.findOne({where: {email: email}});
-    return userDtls;
+const findByEmail = async (email) => {
+  const userDtls = await user.findOne({ where: { email: email } });
+  return userDtls;
 };
 
 const getAllAgents = async (mypages) => {
@@ -53,11 +48,9 @@ const getAllAgents = async (mypages) => {
   const usersWithCount = await user.findAndCountAll({
     limit: size,
     offset: page * size,
-    where:{"acct_type":"AGENT"},
+    where: { acct_type: "AGENT" },
     attributes: { exclude: ["createdAt", "Token"] },
-    order: [
-      ['id','DESC']
-    ]
+    order: [["id", "DESC"]],
   });
 
   // console.log(usersWithCount.rows[5].dataValues.othername);
@@ -70,16 +63,17 @@ const getAllAgents = async (mypages) => {
   };
 };
 
-const getAllUsers = async (mypages,clientID) => {
+const getAllUsers = async (mypages, clientID) => {
   const { page, size } = mypages;
   const usersWithCount = await user.findAndCountAll({
     limit: size,
     offset: page * size,
-    where:{"acct_type":"STAFF","client_id":clientID},
+    where: {
+      acct_type: ["STAFF", "CLIENT"],
+      client_id: clientID,
+    },
     attributes: { exclude: ["createdAt", "Token"] },
-    order: [
-      ['id','DESC']
-    ]
+    order: [["id", "DESC"]],
   });
 
   // console.log(usersWithCount.rows[5].dataValues.othername);
@@ -94,13 +88,13 @@ const getAllUsers = async (mypages,clientID) => {
 
 const getAgentVeri = async (col, colval, id) => {
   const userRec1 = await user.findOne({ where: { [col]: id } });
-    if(userRec1 ){
-      userRec1.isVeri = colval;
-      await userRec1.save();
-      // return orderRec;
-    }else{
-      return "false";
-    }
+  if (userRec1) {
+    userRec1.isVeri = colval;
+    await userRec1.save();
+    // return orderRec;
+  } else {
+    return "false";
+  }
 };
 
 const getBySingleCol = async (col, colVal) => {
@@ -119,21 +113,21 @@ const getUser = async (id) => {
 
 const UpdateUser = async (id, body, transaction) => {
   const d = Tools.getNowDate();
-   //console.log(body)
-  const user1 = await user.findOne({ where: { id: id },transaction });
+  //console.log(body)
+  const user1 = await user.findOne({ where: { id: id }, transaction });
 
   //   {
-//   id: 33,
-//   surname: 'SDFGD',
-//   othername: 'SDFGSF',
-//   email: 'sdfgf@gmail.com',
-//   phone: '09033445566',
-//   username: 'SFDGSDF',
-//   password: '12345678',
-//   gender: 'MALE',
-//   active: 'YES',
-//   position: 'CASHIER'
-// }
+  //   id: 33,
+  //   surname: 'SDFGD',
+  //   othername: 'SDFGSF',
+  //   email: 'sdfgf@gmail.com',
+  //   phone: '09033445566',
+  //   username: 'SFDGSDF',
+  //   password: '12345678',
+  //   gender: 'MALE',
+  //   active: 'YES',
+  //   position: 'CASHIER'
+  // }
   user1.surname = body.surname.toUpperCase();
   user1.othername = body.othername.toUpperCase();
   user1.email = body.email;
@@ -150,25 +144,28 @@ const UpdateUser = async (id, body, transaction) => {
   // user1.Time_Last_Login = d;
   // user1.Date_Last_LogOut = "";
 
-   await user1.save();
+  await user1.save();
 };
 
 const deleteUser = async (id, transaction) => {
   //  console.log(id);
-  await user.destroy({ where: { id: id },transaction });
+  await user.destroy({ where: { id: id }, transaction });
   //return{}
 };
 
 module.exports = {
   getAllUsers,
   create,
-  getUser, getChangePass,
-  MaxID, getResetPass,
+  getUser,
+  getChangePass,
+  MaxID,
+  getResetPass,
   getRecByID,
   deleteUser,
   UpdateUser,
-   findByEmail,
-   //getRecByID,
+  findByEmail,
+  //getRecByID,
   getBySingleCol,
-  getAllAgents, getAgentVeri,
+  getAllAgents,
+  getAgentVeri,
 };

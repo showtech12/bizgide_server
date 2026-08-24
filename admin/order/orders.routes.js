@@ -152,7 +152,7 @@ router.get("/api/v1/poscustomer", verifyAdmin, async (req, res) => {
               p.full_name,
               p.phone_no,
               p.act_no,
-              SUM(t.balance_amt) AS bal
+              COALESCE(SUM(t.balance_amt), 0) AS bal
           FROM persons p
           LEFT JOIN transactions t
               ON t.personid = p.id
@@ -430,12 +430,11 @@ router.get(
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     const client_id = req.userDtl[0].client_id;
+    // const qry = `SELECT id, legder_name, account_number FROM tblledger WHERE clt_id='${client_id}' AND id > '5'`
+    const qry = `SELECT id, legder_name, account_number FROM tblledger WHERE id > '5'`;
     try {
       sequelize
-        .query(
-          `SELECT id, legder_name, account_number FROM tblledger WHERE clt_id='${client_id}' AND id > '5' `,
-          { type: sequelize.QueryTypes.SELECT },
-        )
+        .query(qry, { type: sequelize.QueryTypes.SELECT })
 
         .then((results) => {
           // console.log('Query result:', results);
@@ -866,7 +865,7 @@ router.get(
           -- ✅ Units join (safe now)
           JOIN tblunit u 
               ON u.product_id = p.id
-
+          WHERE p.clt_id='${client_id}'
           GROUP BY 
               p.id,
               p.product_name,
@@ -1266,9 +1265,9 @@ router.post(
       try {
         // STEP 1: Get the STOCKIN person ID
         const [personResult] = await sequelize.query(
-          `SELECT id FROM persons WHERE store_id = ? AND contact_type = 'STOCKIN' AND clt_id ='${client_id}' LIMIT 1`,
+          `SELECT id FROM persons WHERE store_id = ? AND contact_type = 'STOCKIN' AND clt_id = ? LIMIT 1`,
           {
-            replacements: [str_id],
+            replacements: [str_id, client_id],
             type: sequelize.QueryTypes.SELECT,
             transaction,
           },
@@ -1400,7 +1399,12 @@ router.post(
         );
 
         //insertDetail
-        qty_bal = await getTransact.getStockBal(prdtid, 1, transaction, client_id);
+        qty_bal = await getTransact.getStockBal(
+          prdtid,
+          1,
+          transaction,
+          client_id,
+        );
         // const DBQtyBal = await getTransact.QtyBal(item.id, transaction);
         //  const qtyBal = Number(DBQtyBal) - BaseQty;
 
@@ -1842,7 +1846,7 @@ router.post(
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     //console.log(req.body);
-const client_id = req.userDtl[0].client_id;
+    const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
       store: Joi.number().integer().positive().required().messages({
         "number.base": "Please Select Store must ",
@@ -2245,7 +2249,7 @@ router.post(
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     // console.log(req.body);
- const client_id = req.userDtl[0].client_id;
+    const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
       store: Joi.number().integer().positive().required().messages({
         "number.base": "Please Select Store must ",
@@ -2362,7 +2366,7 @@ router.post(
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     // console.log(req.body);
- const client_id = req.userDtl[0].client_id;
+    const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
       store: Joi.number().integer().positive().required().messages({
         "number.base": "Please Select Store must ",
@@ -2509,7 +2513,7 @@ router.post("/api/v1/delOrder", verifyAdmin, async (req, res) => {
     `;
 
       await sequelize.query(qry, {
-        replacements: { id,client_id },
+        replacements: { id, client_id },
         type: sequelize.QueryTypes.DELETE,
         transaction,
       });
@@ -2537,7 +2541,7 @@ router.post(
   async (req, res) => {
     //console.log(req.userDtl[0].id)
     // console.log(req.body);
-const client_id = req.userDtl[0].client_id;
+    const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
       // store: Joi.number()
       //   .integer()
@@ -2790,7 +2794,12 @@ router.post(
         const usr_id = req.userDtl[0].id;
         const dateId = await getDateid.getDateID(client_id);
 
-        const cashid = await getTransact.get1Col("la_id", "persons", walletID,client_id);
+        const cashid = await getTransact.get1Col(
+          "la_id",
+          "persons",
+          walletID,
+          client_id,
+        );
 
         // ===================== POSTING LOGIC =====================
         if (posttype === "DEBIT") {
@@ -2811,7 +2820,7 @@ router.post(
             0,
             0,
             transaction,
-            client_id
+            client_id,
           );
 
           // Second Leg – Debit Customer Ledger
@@ -2832,7 +2841,7 @@ router.post(
             0,
             0,
             transaction,
-            client_id
+            client_id,
           );
         }
 
@@ -2854,7 +2863,7 @@ router.post(
             0,
             0,
             transaction,
-            client_id
+            client_id,
           );
 
           // Second Leg – Credit Customer Ledger
@@ -2874,7 +2883,7 @@ router.post(
             0,
             0,
             transaction,
-            client_id
+            client_id,
           );
         }
 
@@ -2977,7 +2986,12 @@ router.post(
 
       // ===================== POSTING LOGIC =====================
       if (posttype === "CREDIT") {
-        const cashid = await getTransact.get1Col("la_id", "persons", walletID, client_id);
+        const cashid = await getTransact.get1Col(
+          "la_id",
+          "persons",
+          walletID,
+          client_id,
+        );
         // First Leg – Credit Wallet (Cash Account)
         let desc = `Remove from ${walletText} wallet Account to ${AccountName} Account - ${txtDesc}`;
 
@@ -2996,7 +3010,7 @@ router.post(
           0,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         // Second Leg – Debit Customer Ledger
@@ -3005,7 +3019,7 @@ router.post(
           "la_id",
           "persons",
           AccountID,
-          client_id
+          client_id,
         );
         await getTransact.ProcessCheckout(
           desc,
@@ -3029,7 +3043,12 @@ router.post(
       if (posttype === "DEBIT") {
         // First Leg – Debit Wallet (Cash Account)
         let desc = `Return to ${walletText} wallet Account from ${AccountName} Account - ${txtDesc}`;
-        const cashid = await getTransact.get1Col("la_id", "persons", walletID,client_id);
+        const cashid = await getTransact.get1Col(
+          "la_id",
+          "persons",
+          walletID,
+          client_id,
+        );
         await getTransact.ProcessCheckout(
           desc,
           walletID,
@@ -3045,7 +3064,7 @@ router.post(
           0,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         // Second Leg – Credit Customer Ledger
@@ -3054,7 +3073,7 @@ router.post(
           "la_id",
           "persons",
           AccountID,
-          client_id
+          client_id,
         );
         await getTransact.ProcessCheckout(
           desc,
@@ -3071,7 +3090,7 @@ router.post(
           0,
           0,
           transaction,
-          client_id
+          client_id,
         );
       }
 
@@ -3178,7 +3197,12 @@ router.post(
         // ===================== SYSTEM VALUES =====================
         const usr_id = req.userDtl[0].id;
         const dateId = await getDateid.getDateID(client_id);
-        const cashid = await getTransact.get1Col("la_id", "persons", walletID,client_id);
+        const cashid = await getTransact.get1Col(
+          "la_id",
+          "persons",
+          walletID,
+          client_id,
+        );
 
         // ===================== POSTING LOGIC =====================
         //if (posttype === "CREDIT") {
@@ -3200,7 +3224,7 @@ router.post(
           0,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         // Second Leg – Debit Customer Ledger
@@ -3220,7 +3244,7 @@ router.post(
           0,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         // }
@@ -3366,7 +3390,12 @@ router.post(
         // ===================== SYSTEM VALUES =====================
         const usr_id = req.userDtl[0].id;
         const dateId = await getDateid.getDateID(client_id);
-        const cashid = await getTransact.get1Col("la_id", "persons", walletID,client_id);
+        const cashid = await getTransact.get1Col(
+          "la_id",
+          "persons",
+          walletID,
+          client_id,
+        );
 
         // ===================== POSTING LOGIC =====================
         if (posttype === "CREDIT") {
@@ -3387,7 +3416,7 @@ router.post(
             0,
             0,
             transaction,
-            client_id
+            client_id,
           );
 
           // First Leg – Credit Wallet (Cash Account)
@@ -3408,7 +3437,7 @@ router.post(
             0,
             0,
             transaction,
-            client_id
+            client_id,
           );
         }
 
@@ -3431,7 +3460,7 @@ router.post(
             0,
             0,
             transaction,
-            client_id
+            client_id,
           );
 
           // Second Leg – Credit Customer Ledger
@@ -3452,7 +3481,7 @@ router.post(
             0,
             0,
             transaction,
-            client_id
+            client_id,
           );
         }
 
@@ -3562,7 +3591,12 @@ router.post(
         // ===================== SYSTEM VALUES =====================
         const usr_id = req.userDtl[0].id;
         const dateId = await getDateid.getDateID(client_id);
-        const cashid = await getTransact.get1Col("la_id", "persons", walletID,client_id);
+        const cashid = await getTransact.get1Col(
+          "la_id",
+          "persons",
+          walletID,
+          client_id,
+        );
 
         // ===================== POSTING LOGIC =====================
         //if (posttype === "CREDIT") {
@@ -3584,15 +3618,20 @@ router.post(
           0,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         // Second Leg – Debit Customer Ledger
         desc = txtDesc;
-        const cashidA = await getTransact.get1Col("la_id", "persons", 6,client_id);
+         
+        const personIdSub = await getTransact.getIdByColumn("persons", "la_id", 14, client_id);
+       // const cashidA = await getTransact.get1Col("la_id", "persons", personIdSub,client_id);
+        const cashidA = 14;
+
+        //console.log(personIdSub);
         await getTransact.ProcessCheckout(
           desc,
-          6,
+          personIdSub,
           "CA",
           txtAmount,
           0,
@@ -3604,7 +3643,7 @@ router.post(
           0,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         // }
@@ -3760,7 +3799,7 @@ router.post(
           "la_id",
           "persons",
           customerID,
-          client_id
+          client_id,
         );
 
         // ===================== POSTING LOGIC =====================
@@ -3783,7 +3822,7 @@ router.post(
             0,
             0,
             transaction,
-            client_id
+            client_id,
           );
         }
 
@@ -3805,7 +3844,7 @@ router.post(
             0,
             0,
             transaction,
-            client_id
+            client_id,
           );
         }
         await transaction.commit();
@@ -3933,7 +3972,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
         `INSERT INTO orders (persons_id, order_mode, dates, store, users_id, transact_id,clt_id)
               VALUES (?, ?, ?, ?, ?, '0',?)`,
         {
-          replacements: [customer.id, orderMode, d, str_id, usr_id,client_id],
+          replacements: [customer.id, orderMode, d, str_id, usr_id, client_id],
           type: sequelize.QueryTypes.INSERT,
           transaction,
         },
@@ -3974,7 +4013,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         await sequelize.query(
@@ -4002,7 +4041,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         //===========================PAYMENT POST ================================
@@ -4015,7 +4054,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
             "la_id",
             "persons",
             item.payVia,
-            client_id
+            client_id,
           );
           let desc = `Cash Paid By ${customer.full_name} Via ${item.payViaText}`;
           let TDsc = 0;
@@ -4093,7 +4132,11 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
 
           const orderMode = "Sold";
           const stk_bal = -BaseQty;
-          const DBQtyBal = await getTransact.QtyBal(item.id, transaction,client_id);
+          const DBQtyBal = await getTransact.QtyBal(
+            item.id,
+            transaction,
+            client_id,
+          );
           const qtyBal = Number(DBQtyBal) - BaseQty;
           //  const qtyBal = Number(item.qbal) - BaseQty;
           const stkBalVal = -sellp;
@@ -4132,7 +4175,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
                 0,
                 stkBalVal,
                 QtyType,
-                client_id
+                client_id,
               ],
               type: sequelize.QueryTypes.INSERT,
               transaction,
@@ -4195,9 +4238,9 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res, next) => {
 
 router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
   //console.log(req.body)
-  
+
   const transaction = await sequelize.transaction();
-   const client_id = req.userDtl[0].client_id;
+  const client_id = req.userDtl[0].client_id;
   const {
     payVia,
     AmtPaid,
@@ -4293,7 +4336,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
         `INSERT INTO orders (persons_id, invoice_no, order_mode, dates, store, users_id, transact_id,clt_id)
        VALUES (?, '0', ?, ?, ?, ?, '0',?)`,
         {
-          replacements: [customer.id, orderMode, d, str_id, usr_id,client_id],
+          replacements: [customer.id, orderMode, d, str_id, usr_id, client_id],
           type: sequelize.QueryTypes.INSERT,
           transaction,
         },
@@ -4333,7 +4376,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         desc = `RI Ledger Credited For ${customer.full_name}`;
@@ -4352,7 +4395,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         const sortedCart = [...cart].sort((a, b) => a.id - b.id);
@@ -4389,7 +4432,11 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           // let gain = sellp - costp;
           let orderMode = "Returnin";
           let stk_bal = BaseQty;
-          const DBQtyBal = await getTransact.QtyBal(item.id, transaction,client_id);
+          const DBQtyBal = await getTransact.QtyBal(
+            item.id,
+            transaction,
+            client_id,
+          );
           const qtyBal = Number(DBQtyBal) + BaseQty;
           // const qtyBal = Number(item.qbal) + BaseQty;
           gain = -1 * gain;
@@ -4427,7 +4474,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
                 0, // commisn_amt
                 stkBalVal, // stock_bal_value
                 QtyType, // stock_bal_value
-                client_id
+                client_id,
               ],
               type: sequelize.QueryTypes.INSERT,
               transaction,
@@ -4459,7 +4506,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         desc = `RO Ledger Debited For ${customer.full_name}`;
@@ -4478,7 +4525,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         // for (let item of AllPays) {
@@ -4523,7 +4570,11 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           let gain = 0;
           let orderMode = "Returnout";
           let stk_bal = -BaseQty;
-          const DBQtyBal = await getTransact.QtyBal(item.id, transaction, client_id);
+          const DBQtyBal = await getTransact.QtyBal(
+            item.id,
+            transaction,
+            client_id,
+          );
           const qtyBal = Number(DBQtyBal) - BaseQty;
           //let qtyBal = Number(item.qbal - BaseQty);
           let stkBalVal = -sellp;
@@ -4562,7 +4613,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
                 0, // commisn_amt
                 stkBalVal, // stock_bal_value
                 QtyType, // stock_bal_value
-                client_id
+                client_id,
               ],
               type: sequelize.QueryTypes.INSERT,
               transaction,
@@ -4594,7 +4645,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         desc = `Puchase Ledger Credited For ${customer.full_name}`;
@@ -4613,7 +4664,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           TDsc,
           0,
           transaction,
-          client_id
+          client_id,
         );
 
         const sortedCart = [...cart].sort((a, b) => a.id - b.id);
@@ -4644,7 +4695,11 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           let gain = sellp - costp;
           let orderMode = "Bought";
           let stk_bal = BaseQty;
-          const DBQtyBal = await getTransact.QtyBal(item.id, transaction, client_id);
+          const DBQtyBal = await getTransact.QtyBal(
+            item.id,
+            transaction,
+            client_id,
+          );
           const qtyBal = Number(DBQtyBal) + BaseQty;
           //let qtyBal = Number(item.qbal) + BaseQty;
           let stkBalVal = sellp;
@@ -4681,7 +4736,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
                 0, // commisn_amt
                 stkBalVal, // stock_bal_value
                 QtyType, // stock_bal_value
-                client_id
+                client_id,
               ],
               type: sequelize.QueryTypes.INSERT,
               transaction,
@@ -4714,7 +4769,7 @@ router.get(
   authorizePermission("stockout"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
-     const client_id = req.userDtl[0].client_id;
+    const client_id = req.userDtl[0].client_id;
     const miniVal = req.query.mv;
 
     try {
@@ -4795,7 +4850,7 @@ router.get(
   authorizePermission("all_inventory"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
-     const client_id = req.userDtl[0].client_id;
+    const client_id = req.userDtl[0].client_id;
     try {
       sequelize
         .query(
@@ -4867,7 +4922,7 @@ router.get("/api/v1/allpinvoice", verifyAdmin, async (req, res) => {
   //console.log(req.userDtl[0].id)
   let pid = req.query.pid;
   //console.log(pid)
- const client_id = req.userDtl[0].client_id;
+  const client_id = req.userDtl[0].client_id;
   try {
     sequelize
       .query(
@@ -4919,7 +4974,7 @@ router.get("/api/v1/viewRcpt", verifyAdmin, async (req, res) => {
   //console.log(req.userDtl[0].id)
   let oid = req.query.oid;
   // console.log(oid)
-   const client_id = req.userDtl[0].client_id;
+  const client_id = req.userDtl[0].client_id;
   try {
     sequelize
       .query(
@@ -4958,7 +5013,7 @@ router.get("/api/v1/viewRcpt", verifyAdmin, async (req, res) => {
 
 router.get("/api/v1/stores", verifyAdmin, async (req, res) => {
   //console.log(req.userDtl[0].id)
- const client_id = req.userDtl[0].client_id;
+  const client_id = req.userDtl[0].client_id;
   try {
     sequelize
       .query(
@@ -5106,8 +5161,7 @@ router.post(
         SELECT COALESCE(SUM(tr.credit_amt),0) AS other_income
         FROM transactions tr
         JOIN tbltimes t ON t.id = tr.dateid
-        WHERE tr.personid = '6' 
-        AND tr.ledger_id = '14' AND t.clt_id='${client_id}'
+        WHERE tr.ledger_id = '14' AND t.clt_id='${client_id}'
         ${dateFilter}
         `,
       );
