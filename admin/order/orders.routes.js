@@ -3911,6 +3911,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res) => {
     CartType: Joi.string().required(),
 
     orderMode: Joi.string().required(),
+    trackID: Joi.string().required(),
 
     TAmtPayable: Joi.number().positive().required(),
 
@@ -3933,8 +3934,16 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res) => {
     });
   }
 
-  const { CartType, orderMode, customer, cart, TAmtPayable, TDsc, AllPays } =
-    value;
+  const {
+    CartType,
+    orderMode,
+    customer,
+    cart,
+    TAmtPayable,
+    TDsc,
+    AllPays,
+    trackID,
+  } = value;
 
   const d = new Date().toISOString().split("T")[0];
   const dt = new Date();
@@ -3981,9 +3990,10 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res) => {
               users_id,
               transact_id,
               clt_id,
-              idempotency_key
+              idempotency_key,
+              track_id
             )
-            VALUES (?, ?, ?, ?, ?, '0', ?, ?)
+            VALUES (?, ?, ?, ?, ?, '0', ?, ?,?)
             `,
         {
           replacements: [
@@ -3994,6 +4004,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res) => {
             usr_id,
             client_id,
             idempotency_key || null,
+            trackID,
           ],
           type: sequelize.QueryTypes.INSERT,
           transaction,
@@ -4349,78 +4360,126 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res) => {
 });
 
 router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
-  //console.log(req.body)
+  console.log(req.body);
 
-  const transaction = await sequelize.transaction();
   const client_id = req.userDtl[0].client_id;
-  const {
-    payVia,
-    AmtPaid,
-    CartType,
-    orderMode,
-    customer,
-    cart,
-    TAmtPayable,
-    TDsc,
-    AllPays,
-  } = req.body;
+  const str_id = req.userDtl[0].store_id;
+  const usr_id = req.userDtl[0].id;
+
+  const { idempotency_key, sequence_no, created_at } = req.body;
+
+  const requestPayload = req.body.payload || req.body;
+
+  // const transaction = await sequelize.transaction();
+  // const client_id = req.userDtl[0].client_id;
+  // const {
+  //   payVia,
+  //   AmtPaid,
+  //   CartType,
+  //   orderMode,
+  //   customer,
+  //   cart,
+  //   TAmtPayable,
+  //   TDsc,
+  //   AllPays,
+  // } = req.body;
+
+  // ===============================
+  // PAYMENT VALIDATION
+  // ===============================
 
   const paymentSchema = Joi.object({
-    payVia: Joi.number().integer().positive().required().messages({
-      "number.base": "Payment wallet must be a number",
-      "number.positive": "Invalid payment wallet",
-      "any.required": "Payment wallet is required",
-    }),
+    payVia: Joi.number().integer().positive().required(),
 
-    AmtPaid: Joi.number().positive().precision(2).required().messages({
-      "number.base": "Amount paid must be a number",
-      "number.positive": "Amount must be greater than zero",
-      "any.required": "Amount paid is required",
-    }),
+    AmtPaid: Joi.number().min(0).precision(2).required(),
+
+    payViaText: Joi.string().allow("").optional(),
   });
 
-  const schema = Joi.object({
-    cart: Joi.array().min(1).required().messages({
-      "array.base": "Cart must be an array",
-      "array.min": "Cart cannot be empty",
-    }),
+  // const paymentSchema = Joi.object({
+  //   payVia: Joi.number().integer().positive().required().messages({
+  //     "number.base": "Payment wallet must be a number",
+  //     "number.positive": "Invalid payment wallet",
+  //     "any.required": "Payment wallet is required",
+  //   }),
 
-    // customer: Joi.array()
-    // .min(1)
-    // .required()
-    // .messages({
-    //   "array.base": "Customer Data must be an array",
-    //   "array.min": "Customer Data cannot be empty"
-    // }),
+  //   AmtPaid: Joi.number().positive().precision(2).required().messages({
+  //     "number.base": "Amount paid must be a number",
+  //     "number.positive": "Amount must be greater than zero",
+  //     "any.required": "Amount paid is required",
+  //   }),
+  // });
+
+  // const schema = Joi.object({
+  //   cart: Joi.array().min(1).required().messages({
+  //     "array.base": "Cart must be an array",
+  //     "array.min": "Cart cannot be empty",
+  //   }),
+
+  //   // customer: Joi.array()
+  //   // .min(1)
+  //   // .required()
+  //   // .messages({
+  //   //   "array.base": "Customer Data must be an array",
+  //   //   "array.min": "Customer Data cannot be empty"
+  //   // }),
+
+  //   customer: Joi.object().allow(null, "").optional(),
+
+  //   // AllPays: Joi.array()
+  //   //   .items(paymentSchema)
+  //   //   .min(1)
+  //   //   .unique("payVia") // prevents duplicate wallets
+  //   //   .required()
+  //   //   .messages({
+  //   //     "array.base": "Payments must be an array",
+  //   //     "array.min": "At least one payment is required",
+  //   //     "array.unique": "Duplicate payment wallets are not allowed"
+  //   //   }),
+
+  //   CartType: Joi.string()
+  //     //.valid("CUSTOMER", "WALKIN")
+  //     .required(),
+
+  //   orderMode: Joi.string()
+  //     // .valid("Sold", "Held")
+  //     .required(),
+
+  //   TAmtPayable: Joi.number().positive().required(),
+
+  //   TDsc: Joi.number().min(0).required(),
+  // });
+
+  // ===============================
+  // MAIN VALIDATION
+  // ===============================
+
+  const schema = Joi.object({
+    cart: Joi.array().min(1).required(),
 
     customer: Joi.object().allow(null, "").optional(),
 
     // AllPays: Joi.array()
     //   .items(paymentSchema)
     //   .min(1)
-    //   .unique("payVia") // prevents duplicate wallets
-    //   .required()
-    //   .messages({
-    //     "array.base": "Payments must be an array",
-    //     "array.min": "At least one payment is required",
-    //     "array.unique": "Duplicate payment wallets are not allowed"
-    //   }),
+    //   .unique("payVia")
+    //   .required(),
 
-    CartType: Joi.string()
-      //.valid("CUSTOMER", "WALKIN")
-      .required(),
+    CartType: Joi.string().required(),
 
-    orderMode: Joi.string()
-      // .valid("Sold", "Held")
-      .required(),
+    orderMode: Joi.string().required(),
+    trackID: Joi.string().required(),
 
     TAmtPayable: Joi.number().positive().required(),
 
     TDsc: Joi.number().min(0).required(),
   });
 
-  //const { error } = schema.validate({ payVia, AmtPaid, CartType, orderMode });
-  const { error, value } = schema.validate(req.body, {
+  // ===============================
+  // VALIDATE
+  // ===============================
+
+  const { error, value } = schema.validate(requestPayload, {
     abortEarly: false,
     stripUnknown: true,
   });
@@ -4432,15 +4491,541 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
     });
   }
 
-  // if (error) {
-  //   return res.status(400).json({ success: false, message: error.details[0].message });
-  // }
+  const { CartType, orderMode, customer, cart, TAmtPayable, TDsc, trackID } =
+    value;
 
-  const str_id = req.userDtl[0].store_id;
-  // const or_mode = "stockin";
   const d = new Date().toISOString().split("T")[0];
   const dt = new Date();
-  const usr_id = req.userDtl[0].id;
+
+  try {
+    // IMPORTANT:
+    // checkoutWithRetry must create a NEW transaction
+    // for every attempt.
+
+    const result = await getTransact.checkoutWithRetry(async (transaction) => {
+      // ==========================================
+      // STEP 1: IDEMPOTENCY CHECK
+      // ==========================================
+
+      if (idempotency_key) {
+        const existingOrder = await getTransact.checkIdempotencyKey(
+          idempotency_key,
+          client_id,
+          transaction,
+        );
+
+        if (existingOrder) {
+          return {
+            alreadyProcessed: true,
+            order_id: existingOrder.id,
+            invoice_no: existingOrder.invoice_no,
+            idempotency_key,
+          };
+        }
+      }
+
+      // ==========================================
+      // STEP 2: INSERT ORDER
+      // ==========================================
+
+      const [insertResult] = await sequelize.query(
+        `
+            INSERT INTO orders
+            (
+              persons_id,
+              order_mode,
+              dates,
+              store,
+              users_id,
+              transact_id,
+              clt_id,
+              idempotency_key,
+              track_id
+            )
+            VALUES (?, ?, ?, ?, ?, '0', ?, ?,?)
+            `,
+        {
+          replacements: [
+            customer.id,
+            orderMode,
+            d,
+            str_id,
+            usr_id,
+            client_id,
+            idempotency_key || null,
+            trackID,
+          ],
+          type: sequelize.QueryTypes.INSERT,
+          transaction,
+        },
+      );
+
+      const orMax = insertResult;
+
+      // ==========================================
+      // STEP 3: INVOICE NUMBER
+      // ==========================================
+
+      const inv_no = 12000 + Number(orMax);
+
+      await sequelize.query(
+        `
+          UPDATE orders
+          SET invoice_no = ?
+          WHERE id = ?
+          `,
+        {
+          replacements: [inv_no, orMax],
+          type: sequelize.QueryTypes.UPDATE,
+          transaction,
+        },
+      );
+
+      let resData = null;
+
+      //=============RI==========================
+
+      if (CartType === "RETURNIN") {
+        //     $typez ="RECEIPT";
+        //==================== First Leg =====================
+        let desc = `Return Goods From ${customer.full_name} `;
+        let ca_id = 0;
+
+        //const  penalty = addbal * cost;
+        const dateId = await getDateid.getDateID(client_id);
+
+        await getTransact.ProcessCheckout(
+          desc,
+          customer.id,
+          "PA",
+          TAmtPayable,
+          0,
+          0,
+          usr_id,
+          3,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+          transaction,
+          client_id,
+        );
+
+        desc = `RI Ledger Credited For ${customer.full_name}`;
+
+        await getTransact.ProcessCheckout(
+          desc,
+          3,
+          "CA",
+          0,
+          TAmtPayable,
+          0,
+          usr_id,
+          3,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+          transaction,
+          client_id,
+        );
+
+        const sortedCart = [...cart].sort((a, b) => a.id - b.id);
+        for (let item of sortedCart) {
+          let QtyType = item.prdtType;
+
+          const selectedUnit = item.units.find(
+            (u) => u.unit_measure === QtyType.toUpperCase(),
+          );
+
+          if (!selectedUnit) {
+            // console.log("Unit not found for", item.product_name);
+            continue;
+          }
+
+          let BaseQty = Number(item.qty * item.unitsInSelected);
+          let Qty = Number(item.qty);
+          const costPrice = Number(selectedUnit.costprice);
+          const unit_price = Number(selectedUnit.unitprice);
+          const sellPrice = Number(item.price);
+          const discount = Number(item.discount) || 0;
+
+          let sellp = 0;
+          sellp = Qty * sellPrice;
+
+          // Calculations (always use normalized Qty)
+          const costp = Qty * costPrice;
+
+          let gain = sellp - costp;
+
+          let qty_bal = 0;
+          // let costp = Number( item.qty * item.cost_price);
+          // sellp = Number( item.qty * item.price);
+          // let gain = sellp - costp;
+          let orderMode = "Returnin";
+          let stk_bal = BaseQty;
+          const DBQtyBal = await getTransact.QtyBal(
+            item.id,
+            transaction,
+            client_id,
+          );
+          const qtyBal = Number(DBQtyBal) + BaseQty;
+          // const qtyBal = Number(item.qbal) + BaseQty;
+          gain = -1 * gain;
+          let stkBalVal = -sellp;
+
+          const [insertDetail] = await sequelize.query(
+            `INSERT INTO order_details (
+                    orders_id, product_id, quantity, sales_price, discount, total_line, gain,
+                    unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
+                    vats_amount, date_time, total_costline, manifacture_date, expire_date,
+                    commisn_amt, stock_bal_value,qty_type,clt_id
+                  )
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)`,
+            {
+              replacements: [
+                orMax, // orders_id
+                item.id, // product_id
+                item.qty, // quantity
+                item.price, // sales_price
+                item.discount, // discount
+                sellp, // total_line
+                gain, // gain
+                unit_price, // unit_price
+                dateId, // time_id
+                1, // basket_count (fixed)
+                d, // dated
+                orderMode, // order_mode
+                stk_bal, // stock_bal
+                qtyBal, // qty_bal (fixed)
+                0, // vats_amount
+                dt, // date_time
+                costp, // total_costline
+                0, // manifacture_date
+                0, // expire_date
+                0, // commisn_amt
+                stkBalVal, // stock_bal_value
+                QtyType, // stock_bal_value
+                client_id,
+              ],
+              type: sequelize.QueryTypes.INSERT,
+              transaction,
+            },
+          );
+        }
+      }
+
+
+      if (CartType === "RETURNOUT") {
+        //     $typez ="RECEIPT";
+        //==================== First Leg =====================
+        let desc = `Return Goods To ${customer.full_name} `;
+        let ca_id = 0;
+
+        //const  penalty = addbal * cost;
+        const dateId = await getDateid.getDateID(client_id);
+
+        await getTransact.ProcessCheckout(
+          desc,
+          customer.id,
+          "PA",
+          0,
+          TAmtPayable,
+          0,
+          usr_id,
+          4,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+          transaction,
+          client_id,
+        );
+
+        desc = `RO Ledger Debited For ${customer.full_name}`;
+
+        await getTransact.ProcessCheckout(
+          desc,
+          4,
+          "CA",
+          TAmtPayable,
+          0,
+          0,
+          usr_id,
+          4,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+          transaction,
+          client_id,
+        );
+
+        // for (let item of AllPays) {
+        //     //console.log(item.AmtPaid);
+        //     //AmtPaid = Number(item.AmtPaid);
+
+        //    const cashid = await getTransact.get1Col("la_id","persons",item.payVia);
+        //     let desc = `Cash Paid By ${customer.full_name} Via ${item.payViaText}`;
+        //     let TDsc =0;
+
+        //     await getTransact.ProcessCheckout(desc, 0, "CA",  0, Number(item.AmtPaid), cashid, usr_id, cashid, dateId, 0,TDsc,0);
+
+        //      await getTransact.ProcessCheckout(desc, customer.id, "PA",  Number(item.AmtPaid), 0, 0, usr_id, cashid, dateId, 0,TDsc,0);
+
+        //   }
+        const sortedCart = [...cart].sort((a, b) => a.id - b.id);
+        for (let item of sortedCart) {
+          let QtyType = item.prdtType;
+
+          const selectedUnit = item.units.find(
+            (u) => u.unit_measure === QtyType.toUpperCase(),
+          );
+
+          if (!selectedUnit) {
+            //console.log("Unit not found for", item.product_name);
+            continue;
+          }
+
+          let BaseQty = Number(item.qty * item.unitsInSelected);
+          let Qty = Number(item.qty);
+          const costPrice = Number(selectedUnit.costprice);
+          const unit_price = Number(selectedUnit.unitprice);
+          const sellPrice = Number(item.price);
+          const discount = Number(item.discount) || 0;
+
+          let sellp = 0;
+          let costp = 0;
+          sellp = Qty * sellPrice;
+          costp = Qty * costPrice;
+
+          //let gain = sellp - costp;
+          let gain = 0;
+          let orderMode = "Returnout";
+          let stk_bal = -BaseQty;
+          const DBQtyBal = await getTransact.QtyBal(
+            item.id,
+            transaction,
+            client_id,
+          );
+          const qtyBal = Number(DBQtyBal) - BaseQty;
+          //let qtyBal = Number(item.qbal - BaseQty);
+          let stkBalVal = -sellp;
+
+          //========================
+
+          const [insertDetail] = await sequelize.query(
+            `INSERT INTO order_details (
+                    orders_id, product_id, quantity, sales_price, discount, total_line, gain,
+                    unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
+                    vats_amount, date_time, total_costline, manifacture_date, expire_date,
+                    commisn_amt, stock_bal_value,qty_type,clt_id
+                  )
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)`,
+            {
+              replacements: [
+                orMax, // orders_id
+                item.id, // product_id
+                item.qty, // quantity
+                item.price, // sales_price
+                item.discount, // discount
+                sellp, // total_line
+                gain, // gain
+                unit_price, // unit_price
+                dateId, // time_id
+                1, // basket_count (fixed)
+                d, // dated
+                orderMode, // order_mode
+                stk_bal, // stock_bal
+                qtyBal, // qty_bal (fixed)
+                0, // vats_amount
+                dt, // date_time
+                costp, // total_costline
+                0, // manifacture_date
+                0, // expire_date
+                0, // commisn_amt
+                stkBalVal, // stock_bal_value
+                QtyType, // stock_bal_value
+                client_id,
+              ],
+              type: sequelize.QueryTypes.INSERT,
+              transaction,
+            },
+          );
+        }
+      }
+
+      if (CartType === "SUPPLIERS") {
+        //     $typez ="RECEIPT";
+        //==================== First Leg =====================
+        let desc = `Bought From  ${customer.full_name} `;
+        let ca_id = 0;
+
+        //const  penalty = addbal * cost;
+        const dateId = await getDateid.getDateID(client_id);
+
+        await getTransact.ProcessCheckout(
+          desc,
+          customer.id,
+          "PA",
+          TAmtPayable,
+          0,
+          0,
+          usr_id,
+          1,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+          transaction,
+          client_id,
+        );
+
+        desc = `Puchase Ledger Credited For ${customer.full_name}`;
+
+        await getTransact.ProcessCheckout(
+          desc,
+          1,
+          "CA",
+          0,
+          TAmtPayable,
+          0,
+          usr_id,
+          1,
+          dateId,
+          orMax,
+          TDsc,
+          0,
+          transaction,
+          client_id,
+        );
+
+        const sortedCart = [...cart].sort((a, b) => a.id - b.id);
+        for (let item of sortedCart) {
+          let QtyType = item.prdtType;
+
+          const selectedUnit = item.units.find(
+            (u) => u.unit_measure === QtyType.toUpperCase(),
+          );
+
+          if (!selectedUnit) {
+            // console.log("Unit not found for", item.product_name);
+            continue;
+          }
+
+          let BaseQty = Number(item.qty * item.unitsInSelected);
+          let Qty = Number(item.qty);
+          const costPrice = Number(selectedUnit.costprice);
+          const unit_price = Number(selectedUnit.unitprice);
+          const sellPrice = Number(item.price);
+          const discount = Number(item.discount) || 0;
+
+          let sellp = 0;
+          let costp = 0;
+          sellp = Qty * sellPrice;
+          costp = Qty * costPrice;
+
+          let gain = sellp - costp;
+          let orderMode = "Bought";
+          let stk_bal = BaseQty;
+          const DBQtyBal = await getTransact.QtyBal(
+            item.id,
+            transaction,
+            client_id,
+          );
+          const qtyBal = Number(DBQtyBal) + BaseQty;
+          //let qtyBal = Number(item.qbal) + BaseQty;
+          let stkBalVal = sellp;
+
+          const [insertDetail] = await sequelize.query(
+            `INSERT INTO order_details (
+                    orders_id, product_id, quantity, sales_price, discount, total_line, gain,
+                    unit_price, time_id, basket_count, dated, order_mode, stock_bal, qty_bal,
+                    vats_amount, date_time, total_costline, manifacture_date, expire_date,
+                    commisn_amt, stock_bal_value,qty_type,clt_id
+                  )
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)`,
+            {
+              replacements: [
+                orMax, // orders_id
+                item.id, // product_id
+                item.qty, // quantity
+                item.price, // sales_price
+                item.discount, // discount
+                sellp, // total_line
+                gain, // gain
+                unit_price, // unit_price
+                dateId, // time_id
+                1, // basket_count (fixed)
+                d, // dated
+                orderMode, // order_mode
+                stk_bal, // stock_bal
+                qtyBal, // qty_bal (fixed)
+                0, // vats_amount
+                dt, // date_time
+                costp, // total_costline
+                0, // manifacture_date
+                0, // expire_date
+                0, // commisn_amt
+                stkBalVal, // stock_bal_value
+                QtyType, // stock_bal_value
+                client_id,
+              ],
+              type: sequelize.QueryTypes.INSERT,
+              transaction,
+            },
+          );
+        }
+      }
+      // ==========================================
+      // RETURN RESULT
+      // checkoutWithRetry WILL COMMIT
+      // ==========================================
+
+      return {
+        alreadyProcessed: false,
+        order_id: orMax,
+        invoice_no: inv_no,
+        respData: resData,
+      };
+    });
+
+    // ============================================
+    // ALREADY PROCESSED
+    // ============================================
+
+    if (result.alreadyProcessed) {
+      return res.status(200).json({
+        success: true,
+        alreadyProcessed: true,
+        message: "Transaction already processed",
+        order_id: result.order_id,
+        invoice_no: result.invoice_no,
+        idempotency_key: result.idempotency_key,
+      });
+    }
+
+    // ============================================
+    // SUCCESS
+    // ============================================
+
+    return res.status(200).json({
+      success: true,
+      message: "Checkout Successful",
+      respData: result.respData,
+      order_id: result.order_id,
+      invoice_no: result.invoice_no,
+    });
+  } catch (error) {
+    console.error("Checkout error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Error creating order",
+      error: error.message,
+    });
+  }
+
   await getTransact.checkoutWithRetry(async () => {
     try {
       // STEP 2: Insert into orders table
@@ -4857,7 +5442,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
         }
       }
       await transaction.commit();
-      
+
       return res.status(200).json({
         success: true,
         message: "Successfull",

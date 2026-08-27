@@ -19,7 +19,7 @@ router.post("/api/v2/register", async (req, res) => {
     //console.log("Create Register request:", req.body);
 
     const { error, value } = RegisterClientSchema.validate(req.body); // Validation
-    console.log(value);
+    //console.log(value);
     if (error) {
       return res.status(400).json({
         success: false,

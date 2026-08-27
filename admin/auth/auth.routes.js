@@ -45,14 +45,19 @@ router.post("/api/v1/auth/login", async (req, res) => {
     // Use parameterized queries to prevent SQL injection
     const results = await sequelize.query(
       //`SELECT * FROM tblusers WHERE email = :email AND PassWord = :password AND acct_type = 'STAFF'`
-      `SELECT 
+            `SELECT 
                  u.*,
                 r.rolename,
                 r.permission,
-                r.permission_module
+                r.permission_module,
+                c.company_name,
+                c.phone,
+                c.address
             FROM tblusers u
             INNER JOIN tblrole r 
                 ON u.role_id = r.id
+            INNER JOIN clients c
+		            ON u.client_id = c.id
             WHERE 
                 u.email = :email;`,
       {
@@ -63,7 +68,7 @@ router.post("/api/v1/auth/login", async (req, res) => {
     //console.log(results)
     if (results.length > 0) {
       const user = results[0];
-       console.log(user)
+      // console.log(user)
 
       // Check if the password matches (assuming you hash passwords on registration)
       // const passwordMatch = await bcryptjs.compare(txtPass, user.PassWord);
