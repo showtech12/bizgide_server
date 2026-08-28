@@ -4360,7 +4360,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res) => {
 });
 
 router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
-  console.log(req.body);
+  // console.log(req.body);
 
   const client_id = req.userDtl[0].client_id;
   const str_id = req.userDtl[0].store_id;
@@ -4714,7 +4714,6 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
           );
         }
       }
-
 
       if (CartType === "RETURNOUT") {
         //     $typez ="RECEIPT";

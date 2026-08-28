@@ -35,7 +35,7 @@ Client.init(
     },
 
     email: {
-      type: DataTypes.STRING(200),
+      type: DataTypes.STRING(220),
       allowNull: false,
       unique: true,
       validate: {
@@ -48,12 +48,12 @@ Client.init(
     },
 
     phone: {
-      type: DataTypes.STRING(25),
+      type: DataTypes.STRING(11),
       allowNull: false,
     },
 
     industry: {
-      type: DataTypes.STRING(150),
+      type: DataTypes.STRING(180),
       allowNull: true,
     },
 
@@ -77,14 +77,22 @@ Client.init(
       type: DataTypes.STRING(150),
       allowNull: true,
     },
+    due_date: {
+      type: DataTypes.STRING(25),
+      allowNull: true,
+    },
+    is_active: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
 
     // status: {
     //   type: DataTypes.ENUM(
-    //     "Trial",
-    //     "Active",
-    //     "Suspended",
-    //     "Expired",
-    //     "Cancelled"
+        // "Trial",
+        // "Active",
+        // "Suspended",
+        // "Expired",
+        // "Cancelled"
     //   ),
     //   defaultValue: "Trial",
     // },

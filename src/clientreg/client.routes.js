@@ -50,14 +50,26 @@ router.post("/api/v2/register", async (req, res) => {
     const nowISO = new Date().toISOString();
     const regDate = Tools.getNowDate();
 
+    const today = new Date();
+
+    const twoWeeksLater = new Date(today);
+    twoWeeksLater.setDate(today.getDate() + 14);
+
+    const Duedate = twoWeeksLater.toISOString().split("T")[0];
+
+    //console.log(Duedate);
+
     const myData = {
       ...value,
       subscription_plan: "Trial",
       status: "Active",
       reffer_by: value.refferByID,
+      due_date: Duedate,
+      is_active: 1,
     };
 
-    //console.log(myData)
+    console.log(myData);
+    //return false;
     await cClient.create(myData);
     const client_ID = await cClient.MaxID("id");
 
@@ -228,7 +240,7 @@ router.post("/api/v2/register", async (req, res) => {
         clt_id: client_ID,
       },
     ];
-     await mRoles.bulkCreate(Roles, { transaction });
+    await mRoles.bulkCreate(Roles, { transaction });
     //============================================
 
     await sequelize.query(

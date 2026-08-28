@@ -50,9 +50,12 @@ router.post("/api/v1/auth/login", async (req, res) => {
                 r.rolename,
                 r.permission,
                 r.permission_module,
-                c.company_name,
+               c.company_name,
                 c.phone,
-                c.address
+                c.address,
+                c.due_date,
+                c.status,
+                c.is_active
             FROM tblusers u
             INNER JOIN tblrole r 
                 ON u.role_id = r.id
