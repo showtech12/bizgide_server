@@ -61,14 +61,14 @@ router.post("/api/v2/register", async (req, res) => {
 
     const myData = {
       ...value,
-      subscription_plan: "Trial",
+      suborder_id: 0,
       status: "Active",
       reffer_by: value.refferByID,
-      due_date: Duedate,
+     // due_date: Duedate,
       is_active: 1,
     };
 
-    console.log(myData);
+    //console.log(myData);
     //return false;
     await cClient.create(myData);
     const client_ID = await cClient.MaxID("id");
@@ -77,7 +77,45 @@ router.post("/api/v2/register", async (req, res) => {
     const acct_no = 190100 + client_ID;
     await cClient.getRecByID("id", acct_no, client_ID);
 
-    const userDetails = await cClient.getOne(client_ID);
+    //await cClient.updateOneColumn(client_ID, "suborder_id","")
+
+    //const userDetails = await cClient.getOne(client_ID);
+//==============================================================
+   const [subOrderMaxID] =  await sequelize.query(
+      `
+    INSERT INTO tblsuborder
+      (
+        sub_id,
+        client_id,
+        due_date,
+        isactive,
+        sub_status
+      
+      )
+    VALUES
+      (
+        :sub_id,
+        :client_id,
+        :due_date,
+        :isactive,
+        :sub_status
+        
+      )`,
+      {
+        replacements: {
+          sub_id: 1,
+          client_id: client_ID,
+          due_date: Duedate,
+          isactive: 1,
+          sub_status: "Active"
+          
+        },
+        type: sequelize.QueryTypes.INSERT,
+        transaction,
+      },
+    );
+    //===========================================
+      await cClient.updateOneColumn(client_ID, "suborder_id",subOrderMaxID);
     //============================================
 
     const Subsdiary = [
@@ -331,5 +369,9 @@ router.get(
     }
   },
 );
+
+//router.patch(
+
+
 
 module.exports = router;

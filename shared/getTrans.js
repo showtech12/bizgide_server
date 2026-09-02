@@ -530,9 +530,31 @@ const checkIdempotencyKey = async (idempotency_key, clientID, transaction) => {
     ? existing[0]
     : null;
 };
-// async function checkoutWithRetry(fn){
 
-// }
+const checkSubUser = async (subID) => {
+  const result = await sequelize.query(
+    `
+      SELECT 
+        s.no_of_staff,
+        s.sub_space
+      FROM tblsuborder so
+      INNER JOIN tblsubscription s 
+        ON so.sub_id = s.id
+      WHERE so.id = ?;
+    `,
+    {
+      replacements: [subID],
+      type: sequelize.QueryTypes.SELECT,
+     
+    }
+  );
+
+//   if(result[0].no_of_staff === curentStaff){
+//     return false
+//   }
+//  return true
+  return result[0] || null;
+};
 
 module.exports = {
   ProcessTransact,
@@ -543,4 +565,5 @@ module.exports = {
   QtyBal,
   getIdByColumn,
   checkIdempotencyKey ,
+  checkSubUser,
 };

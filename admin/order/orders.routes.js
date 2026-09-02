@@ -3871,7 +3871,7 @@ router.post(
 );
 
 router.post("/api/v1/gettransact", verifyAdmin, async (req, res) => {
-  console.log(req.body);
+  //console.log(req.body);
 
   const client_id = req.userDtl[0].client_id;
   const str_id = req.userDtl[0].store_id;

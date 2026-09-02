@@ -57,10 +57,10 @@ Client.init(
       allowNull: true,
     },
 
-    subscription_plan: {
-      type: DataTypes.STRING(150),
-      allowNull: true,
-    },
+    // subscription_plan: {
+    //   type: DataTypes.STRING(150),
+    //   allowNull: true,
+    // },
 
     // subscription_plan: {
     //   type: DataTypes.ENUM(
@@ -77,9 +77,13 @@ Client.init(
       type: DataTypes.STRING(150),
       allowNull: true,
     },
-    due_date: {
-      type: DataTypes.STRING(25),
-      allowNull: true,
+    // due_date: {
+    //   type: DataTypes.STRING(25),
+    //   allowNull: true,
+    // },
+    suborder_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
     },
     is_active: {
       type: DataTypes.INTEGER,

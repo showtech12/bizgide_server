@@ -63,6 +63,22 @@ const getAllAgents = async (mypages) => {
   };
 };
 
+
+
+const getTotalNoUser = async (clientID) => {
+  const totalUsers = await user.count({
+    where: {
+      acct_type: ["STAFF", "CLIENT"],
+      client_id: clientID,
+    },
+  });
+
+  return {
+    success: true,
+    totalUsers,
+  };
+};
+
 const getAllUsers = async (mypages, clientID) => {
   const { page, size } = mypages;
   const usersWithCount = await user.findAndCountAll({
@@ -116,18 +132,6 @@ const UpdateUser = async (id, body, transaction) => {
   //console.log(body)
   const user1 = await user.findOne({ where: { id: id }, transaction });
 
-  //   {
-  //   id: 33,
-  //   surname: 'SDFGD',
-  //   othername: 'SDFGSF',
-  //   email: 'sdfgf@gmail.com',
-  //   phone: '09033445566',
-  //   username: 'SFDGSDF',
-  //   password: '12345678',
-  //   gender: 'MALE',
-  //   active: 'YES',
-  //   position: 'CASHIER'
-  // }
   user1.surname = body.surname.toUpperCase();
   user1.othername = body.othername.toUpperCase();
   user1.email = body.email;
@@ -168,4 +172,5 @@ module.exports = {
   getBySingleCol,
   getAllAgents,
   getAgentVeri,
+  getTotalNoUser,
 };

@@ -45,24 +45,29 @@ router.post("/api/v1/auth/login", async (req, res) => {
     // Use parameterized queries to prevent SQL injection
     const results = await sequelize.query(
       //`SELECT * FROM tblusers WHERE email = :email AND PassWord = :password AND acct_type = 'STAFF'`
-            `SELECT 
+            `	SELECT 
                  u.*,
                 r.rolename,
                 r.permission,
                 r.permission_module,
-               c.company_name,
+                c.id as cid,
+		            c.company_name,
                 c.phone,
                 c.address,
-                c.due_date,
+                s.due_date,
                 c.status,
-                c.is_active
+                c.is_active,
+                s.isactive,
+                c.suborder_id
             FROM tblusers u
             INNER JOIN tblrole r 
                 ON u.role_id = r.id
             INNER JOIN clients c
-		            ON u.client_id = c.id
+		ON u.client_id = c.id
+	    INNER JOIN tblsuborder s
+		ON c.suborder_id = s.id
             WHERE 
-                u.email = :email;`,
+                u.email = :email`,
       {
         replacements: { email: txtEmail1, password: txtPass1 },
         type: sequelize.QueryTypes.SELECT,

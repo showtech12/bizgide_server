@@ -329,4 +329,146 @@ router.post(
   },
 );
 
+router.post("/api/v1/stockspace", verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.body;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Subscription ID is required",
+      });
+    }
+
+    // Prefer getting this from authenticated user
+    const cid = req.userDtl?.[0]?.client_id;
+
+    if (!cid) {
+      return res.status(400).json({
+        success: false,
+        message: "Client ID is missing from authenticated user",
+      });
+    }
+
+    // Get subscription limits
+    const maxStore = await getTransact.checkSubUser(id);
+
+    if (!maxStore) {
+      return res.status(404).json({
+        success: false,
+        message: "Subscription not found",
+      });
+    }
+
+    const qry = `
+      SELECT COUNT(*) AS order_count
+      FROM orders
+      WHERE clt_id = ?
+    `;
+
+    const [result] = await sequelize.query(qry, {
+      replacements: [cid],
+      type: sequelize.QueryTypes.SELECT,
+    });
+
+    const orderCount = Number(result?.order_count || 0);
+
+    // Change this to the actual column representing your order limit
+    const orderLimit = Number(maxStore.sub_space || 0);
+
+    const limitReached = orderCount >= orderLimit;
+
+    return res.status(200).json({
+      success: !limitReached,
+      limitReached,
+      message: limitReached
+        ? "Order limit reached"
+        : "Order space available",
+      data: {
+        current: orderCount,
+        limit: orderLimit,
+        remaining: Math.max(orderLimit - orderCount, 0),
+      },
+    });
+  } catch (error) {
+    console.error("Stock space error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to check stock space",
+    });
+  }
+});
+
+router.post("/api/v1/deactivesub", verifyAdmin, async (req, res) => {
+  try {
+    const { id, cid } = req.body;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Subscription ID is required",
+      });
+    }
+
+    if (!cid) {
+      return res.status(400).json({
+        success: false,
+        message: "Client ID is required",
+      });
+    }
+
+    // ==========================================
+    // DEACTIVATE SUBSCRIPTION
+    // ==========================================
+
+    const qry = `
+      UPDATE tblsuborder
+      SET 
+        isactive = 0,
+        sub_status = 'DEACTIVATE'
+      WHERE id = :id
+    `;
+
+    const [results] = await sequelize.query(qry, {
+      replacements: { id },
+      type: sequelize.QueryTypes.UPDATE,
+    });
+
+    // ==========================================
+    // DEACTIVATE CLIENT
+    // ==========================================
+
+    const qry1 = `
+      UPDATE clients
+      SET 
+        is_active = 0
+      WHERE id = :cid
+    `;
+
+    const [results1] = await sequelize.query(qry1, {
+      replacements: { cid },
+      type: sequelize.QueryTypes.UPDATE,
+    });
+
+    // ==========================================
+
+    return res.status(200).json({
+      success: true,
+      message: "Subscription and client deactivated successfully",
+      data: {
+        subscription: results,
+        client: results1,
+      },
+    });
+  } catch (error) {
+    console.error("Deactivate subscription error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
 module.exports = router;

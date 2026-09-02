@@ -97,13 +97,27 @@ const update = async (id, body) => {
     delete data.password;
   }
 
-  return await User.update(data, {
+  return await Clients.update(data, {
     where: { id },
   });
 };
 
+const updateOneColumn = async (id, column, value) => {
+  try {
+    const data = {
+      [column]: value,
+    };
+
+    return await Clients.update(data, {
+      where: { id },
+    });
+  } catch (error) {
+    throw error;
+  }
+};
+
 const remove = async (id) => {
-  const user = await User.findByPk(id);
+  const user = await Clients.findByPk(id);
 
   if (!user) {
     throw new Error("User not found");
@@ -122,5 +136,6 @@ module.exports = {
   getAllRecords,
   MaxID,
   getRecByID,
+  updateOneColumn,
   
 };

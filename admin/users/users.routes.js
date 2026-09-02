@@ -9,6 +9,7 @@ const pagination = require("../../shared/pagination");
 const BadRequest400 = require("../../Exceptions/400Exception");
 const idNumControlPOST = require("../../shared/idNumberControlPOST");
 const idNumControl = require("../../shared/idNumberControl");
+const getTransact = require("../../shared/getTrans.js");
 //const basicAuth = require("../shared/basicAuth");
 const SndMail = require("../../shared/sendMail.js");
 const {
@@ -260,7 +261,7 @@ router.get(
   async (req, res) => {
     const client_id = req.userDtl[0].client_id;
     const pages = await cUser.getAllUsers(req.mypages, client_id);
-    console.log(pages)
+    // console.log(pages)
     res.status(200).json({
       success: true,
       data: pages,
@@ -276,7 +277,24 @@ router.post(
   async (req, res) => {
     const transaction = await sequelize.transaction();
     const client_id = req.userDtl[0].client_id;
+    const subID = req.userDtl[0].suborder_id;
+    
     try {
+      const TotalUser = await cUser.getTotalNoUser(client_id);
+      const curentStaff = Number(TotalUser.totalUsers);
+      //console.log(curentStaff);
+
+      const maxStaff = await getTransact.checkSubUser(subID);
+
+      if (curentStaff >= Number(maxStaff.no_of_staff)) {
+        return res.status(201).json({
+          success: true,
+          message: "You have reach maximum user for your subscription",
+        });
+      }
+
+     // return;
+
       const { error, value } = UserSchema.validate(req.body); // Validation
 
       if (error) {
@@ -340,7 +358,7 @@ router.post(
         local_gvt: "",
         country: "",
         isVeri: "NO",
-        client_id:client_id
+        client_id: client_id,
       };
 
       // Create user
