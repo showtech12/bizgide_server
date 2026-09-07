@@ -14,6 +14,8 @@ const authorizePermission = require("../auth_role.js");
 const getTransact = require("../../shared/getTrans.js");
 
 const sequelize = require("../../config/database");
+const { initializeSubscriptionPayment } = require("../../shared/paymentInitialize.js");
+const { verifySubscriptionPayment } = require("../../shared/verifypayment.js");
 
 router.post(
   "/api/v1/settings",
@@ -74,13 +76,13 @@ router.post(
 
         await sequelize.query(
           `
-      UPDATE tblsettings
-      SET
-        expiring_perct = :expiringAlertPercent,
-        stock_out_perct = :stockOutPercent,
-        profit_margin_perct = :priceMarginPercent,
-        currency = :currency
-      WHERE clt_id = :cltid
+          UPDATE tblsettings
+          SET
+            expiring_perct = :expiringAlertPercent,
+            stock_out_perct = :stockOutPercent,
+            profit_margin_perct = :priceMarginPercent,
+            currency = :currency
+          WHERE clt_id = :cltid
       `,
           {
             replacements: {
@@ -111,6 +113,142 @@ router.post(
         });
       }
     });
+  },
+);
+
+router.get(
+  "/api/v1/subplan",
+  //verifyAdmin,
+  // authorizePermission("settings"),
+  async (req, res) => {
+    //console.log(req.userDtl[0].id)
+   // const client_id = req.userDtl[0].client_id;
+   //console.log("subsss")
+    try {
+      sequelize
+        .query(
+          `SELECT * FROM tblsubscription WHERE sub_name != 'TRAIL'`,
+          { type: sequelize.QueryTypes.SELECT },
+        )
+        .then((results) => {
+          // console.log('Query result:', results);
+          res.status(200).json({
+            success: true,
+            message: "success",
+            data: results,
+          });
+        })
+        .catch((error) => {
+         // console.error('Error fetching data:', error);
+          res.status(200).json({
+            success: false,
+            data: "",
+          });
+        });
+    } catch (error) {
+      //console.log(error);
+      res.status(200).json({
+        success: false,
+        message: error,
+      });
+    }
+
+    //
+  },
+);
+
+router.post(
+  "/api/v1/subscription/initialize",
+ // verifyAdmin,
+  initializeSubscriptionPayment
+);
+
+
+router.get(
+   "/api/v1/subscription/verify/:reference",
+ // verifyAdmin,
+  verifySubscriptionPayment
+);
+
+
+
+// router.post(
+//   "/api/v1/subscription/initialize",
+//   (req, res) => {
+//     console.log("PAYSTACK INITIALIZE ROUTE HIT");
+    
+//     return res.status(200).json({
+//       success: true,
+//       message: "Route is working",
+//     });
+//   }
+// );
+
+router.get(
+  "/api/v1/mysubhistory",
+  verifyAdmin,
+  // authorizePermission("settings"),
+  async (req, res) => {
+    //console.log(req.userDtl[0].id)
+    const client_id = req.userDtl[0].client_id;
+    try {
+      sequelize
+        .query(
+          `SELECT
+              c.company_name,
+              c.surname,
+              c.othername,
+              c.email,
+              c.phone,
+              c.reg_acct_id,
+
+              s.sub_name,
+              s.sub_amount,
+              s.no_of_staff,
+              s.sub_space,
+
+              o.isactive,
+              o.due_date,
+              o.tnx_ref,
+              o.start_date,
+              o.sub_status
+
+          FROM clients AS c
+
+          INNER JOIN tblsuborder AS o
+              ON o.client_id = c.id
+
+          INNER JOIN tblsubscription AS s
+              ON o.sub_id = s.id
+
+          WHERE o.client_id = '${client_id}';`,
+          { type: sequelize.QueryTypes.SELECT },
+        )
+
+        .then((results) => {
+          // console.log('Query result:', results);
+          res.status(200).json({
+            success: true,
+            message: "success",
+            data: results,
+          });
+        })
+        .catch((error) => {
+          //console.error('Error fetching data:', error);
+          res.status(200).json({
+            success: false,
+            data: "",
+          });
+        });
+    } catch (error) {
+      //console.log(error);
+      res.status(200).json({
+        success: false,
+        message: error,
+      });
+    }
+
+    //
   },
 );
 
@@ -381,9 +519,7 @@ router.post("/api/v1/stockspace", verifyAdmin, async (req, res) => {
     return res.status(200).json({
       success: !limitReached,
       limitReached,
-      message: limitReached
-        ? "Order limit reached"
-        : "Order space available",
+      message: limitReached ? "Order limit reached" : "Order space available",
       data: {
         current: orderCount,
         limit: orderLimit,

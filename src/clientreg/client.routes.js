@@ -51,7 +51,7 @@ router.post("/api/v2/register", async (req, res) => {
     const regDate = Tools.getNowDate();
 
     const today = new Date();
-
+    const myToday = today.toISOString().split("T")[0];
     const twoWeeksLater = new Date(today);
     twoWeeksLater.setDate(today.getDate() + 14);
 
@@ -62,9 +62,9 @@ router.post("/api/v2/register", async (req, res) => {
     const myData = {
       ...value,
       suborder_id: 0,
-      status: "Active",
+      status: "ACTIVE",
       reffer_by: value.refferByID,
-     // due_date: Duedate,
+      // due_date: Duedate,
       is_active: 1,
     };
 
@@ -80,8 +80,8 @@ router.post("/api/v2/register", async (req, res) => {
     //await cClient.updateOneColumn(client_ID, "suborder_id","")
 
     //const userDetails = await cClient.getOne(client_ID);
-//==============================================================
-   const [subOrderMaxID] =  await sequelize.query(
+    //==============================================================
+    const [subOrderMaxID] = await sequelize.query(
       `
     INSERT INTO tblsuborder
       (
@@ -89,7 +89,8 @@ router.post("/api/v2/register", async (req, res) => {
         client_id,
         due_date,
         isactive,
-        sub_status
+        sub_status,
+        start_date
       
       )
     VALUES
@@ -98,7 +99,8 @@ router.post("/api/v2/register", async (req, res) => {
         :client_id,
         :due_date,
         :isactive,
-        :sub_status
+        :sub_status,
+        :startDate
         
       )`,
       {
@@ -107,15 +109,15 @@ router.post("/api/v2/register", async (req, res) => {
           client_id: client_ID,
           due_date: Duedate,
           isactive: 1,
-          sub_status: "Active"
-          
+          sub_status: "Active",
+          startDate: myToday,
         },
         type: sequelize.QueryTypes.INSERT,
         transaction,
       },
     );
     //===========================================
-      await cClient.updateOneColumn(client_ID, "suborder_id",subOrderMaxID);
+    await cClient.updateOneColumn(client_ID, "suborder_id", subOrderMaxID);
     //============================================
 
     const Subsdiary = [
@@ -261,7 +263,7 @@ router.post("/api/v2/register", async (req, res) => {
       {
         rolename: "ADMIN",
         permission:
-          "dashboard,ledger,pos,stockin,purchase,returnin,returnout,reprint,expenses,capital,users,products,view_unit,all_inventory,backup,cashbook,customeranalysis,evacuate,expire_noti,inventory,jornals,ledgerbal,otherincome,post,prev,saleanalysis,salesincome,salesrecord,settings,statement,stockout,suppliers,trailbal,cusanalys,uptroles,accountreport,journals",
+          "subhistory,dashboard,ledger,pos,stockin,purchase,returnin,returnout,reprint,expenses,capital,users,products,view_unit,all_inventory,backup,cashbook,customeranalysis,evacuate,expire_noti,inventory,jornals,ledgerbal,otherincome,post,prev,saleanalysis,salesincome,salesrecord,settings,statement,stockout,suppliers,trailbal,cusanalys,uptroles,accountreport,journals",
         clt_id: client_ID,
       },
 
@@ -371,7 +373,5 @@ router.get(
 );
 
 //router.patch(
-
-
 
 module.exports = router;
