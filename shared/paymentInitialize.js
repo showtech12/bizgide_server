@@ -66,8 +66,10 @@ export const initializeSubscriptionPayment = async (req, res) => {
         // Optional callback URL
         // callback_url:
         //   `${process.env.FRONTEND_URL}/subscription/payment/callback`,
+        // callback_url:
+        //   `http://localhost:5173/payment`,
         callback_url:
-          `http://localhost:5173/payment`,
+          `https://bizgide.com/payment`,
       },
       {
         headers: {

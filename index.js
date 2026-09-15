@@ -28,6 +28,7 @@ express.urlencoded();
 
 const allowedOrigins = [
  "https://app.bizgide.com",
+ "https://admin.bizgide.com",
  "https://bizgide.com",
  'http://localhost:5173',
  'http://localhost:5174',

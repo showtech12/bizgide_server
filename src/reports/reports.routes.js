@@ -12,6 +12,169 @@ const mPersons = require("../../admin/persons/persons.model");
 const mRoles = require("../roles/roles.model");
 const Joi = require("joi");
 
+router.get("/api/v2/dashboard", verifyAdmin, async (req, res) => {
+  try {
+    const [clients, Revenue, subOrders] = await Promise.all([
+      // Query 1 - Clients
+      sequelize.query(
+        `
+        SELECT *
+        FROM clients
+        ORDER BY id DESC
+        `,
+        {
+          type: QueryTypes.SELECT,
+        },
+      ),
+
+      // Query 2 - Subscription Plans
+      sequelize.query(
+        `
+        SELECT 
+            SUM(s.sub_amount) as revenue
+        FROM tblsuborder AS o
+        INNER JOIN tblsubscription AS s 
+            ON o.sub_id = s.id;
+        `,
+        {
+          type: QueryTypes.SELECT,
+        },
+      ),
+
+      // Query 3 - Subscription Orders
+      sequelize.query(
+        `
+       		SELECT
+            c.company_name,
+            c.surname,
+            c.othername,
+            c.email,
+            c.phone,
+            c.reg_acct_id,
+
+            s.sub_name,
+            s.sub_amount,
+           
+            o.id,
+            o.isactive,
+            o.due_date,
+            o.tnx_ref,
+            o.start_date,
+            o.sub_status
+
+        FROM clients AS c
+
+        INNER JOIN tblsuborder AS o
+            ON o.client_id = c.id
+
+        INNER JOIN tblsubscription AS s
+            ON o.sub_id = s.id
+        WHERE  o.isactive =1
+        ORDER BY o.id DESC
+        LIMIT 5
+            ;
+        `,
+        {
+          type: QueryTypes.SELECT,
+        },
+      ),
+    ]);
+
+    const activeClients = clients.filter((client) => client.is_active == 1).length;
+    const deactiveClients = clients.filter((client) => client.is_active == 0).length;
+    const TotalClients = clients.length;
+
+    return res.status(200).json({
+      success: true,
+      message: "Dashboard data fetched successfully",
+
+      data: {
+        TotalClients,
+        deactiveClients,
+        activeClients,
+        Revenue,
+        subOrders,
+        
+      },
+    });
+  } catch (error) {
+    console.error("Dashboard error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch dashboard data",
+      error: error.message,
+    });
+  }
+});
+
+router.get(
+  "/api/v2/subclienthist",
+  verifyAdmin,
+  //authorizePermission("expenses"),
+  async (req, res) => {
+    //console.log(req.userDtl[0].id)
+    cid = req.query.id;
+    let qry = ``;
+
+    qry = `SELECT
+            c.company_name,
+            c.surname,
+            c.othername,
+            c.email,
+            c.phone,
+            c.reg_acct_id,
+
+            s.sub_name,
+            s.sub_amount,
+            s.no_of_staff,
+            s.sub_space,
+
+            o.isactive,
+            o.due_date,
+            o.tnx_ref,
+            o.start_date,
+            o.sub_status
+
+        FROM clients AS c
+
+        INNER JOIN tblsuborder AS o
+            ON o.client_id = c.id
+
+        INNER JOIN tblsubscription AS s
+            ON o.sub_id = s.id
+
+         WHERE o.client_id = ${cid};`;
+    try {
+      sequelize
+        .query(qry, { type: sequelize.QueryTypes.SELECT })
+
+        .then((results) => {
+          // console.log('Query result:', results);
+          res.status(200).json({
+            success: true,
+            message: "success",
+            total: results.length,
+            data: results,
+          });
+        })
+        .catch((error) => {
+          //console.error('Error fetching data:', error);
+          res.status(200).json({
+            success: false,
+            data: "",
+          });
+        });
+    } catch (error) {
+      console.log(error);
+      res.status(200).json({
+        success: false,
+        message: error,
+      });
+    }
+  },
+);
+
 router.get(
   "/api/v2/activeplan",
   verifyAdmin,
@@ -147,6 +310,47 @@ router.get(
 );
 
 router.get(
+  "/api/v2/allplansWeb",
+  //verifyAdmin,
+  //authorizePermission("expenses"),
+  async (req, res) => {
+    //console.log(req.userDtl[0].id)
+
+    let qry = ``;
+
+    qry = `SELECT * FROM tblsubscription WHERE sub_name !='TRAIL'`;
+    // qry = `SELECT * FROM tblsubscription`;
+    try {
+      sequelize
+        .query(qry, { type: sequelize.QueryTypes.SELECT })
+
+        .then((results) => {
+          // console.log('Query result:', results);
+          res.status(200).json({
+            success: true,
+            message: "success",
+            total: results.length,
+            data: results,
+          });
+        })
+        .catch((error) => {
+          //console.error('Error fetching data:', error);
+          res.status(200).json({
+            success: false,
+            data: "",
+          });
+        });
+    } catch (error) {
+      console.log(error);
+      res.status(200).json({
+        success: false,
+        message: error,
+      });
+    }
+  },
+);
+
+router.get(
   "/api/v2/allplans",
   verifyAdmin,
   //authorizePermission("expenses"),
@@ -155,7 +359,8 @@ router.get(
 
     let qry = ``;
 
-    qry = `SELECT * FROM tblsubscription `;
+    //  qry = `SELECT * FROM tblsubscription WHERE sub_name !='TRAIL'`;
+    qry = `SELECT * FROM tblsubscription`;
     try {
       sequelize
         .query(qry, { type: sequelize.QueryTypes.SELECT })
@@ -321,7 +526,7 @@ router.post("/api/v2/createplan", verifyAdmin, async (req, res) => {
 
 router.post("/api/v2/updateplan", verifyAdmin, async (req, res) => {
   try {
-    console.log(req.body)
+    console.log(req.body);
     // ============================================================
     // 1. VALIDATE REQUEST BODY
     // ============================================================
@@ -340,15 +545,11 @@ router.post("/api/v2/updateplan", verifyAdmin, async (req, res) => {
         "any.required": "Plan name is required",
       }),
 
-      period: Joi.number()
-        .integer()
-        .valid(1, 3, 6, 9, 12)
-        .required()
-        .messages({
-          "number.base": "Subscription period must be a number",
-          "any.only": "Subscription period must be 1, 3, 6, 9, or 12 months",
-          "any.required": "Subscription period is required",
-        }),
+      period: Joi.number().integer().valid(1, 3, 6, 9, 12).required().messages({
+        "number.base": "Subscription period must be a number",
+        "any.only": "Subscription period must be 1, 3, 6, 9, or 12 months",
+        "any.required": "Subscription period is required",
+      }),
 
       amount: Joi.number().positive().precision(2).required().messages({
         "number.base": "Subscription amount must be a number",
@@ -356,7 +557,7 @@ router.post("/api/v2/updateplan", verifyAdmin, async (req, res) => {
         "any.required": "Subscription amount is required",
       }),
 
-       no_of_user: Joi.number().integer().min(1).required().messages({
+      no_of_user: Joi.number().integer().min(1).required().messages({
         "number.base": "Number of staff must be a number",
         "number.integer": "Number of staff must be a whole number",
         "number.min": "Number of staff must be at least 1",
@@ -435,7 +636,7 @@ router.post("/api/v2/updateplan", verifyAdmin, async (req, res) => {
         sub_amount: value.amount,
         no_of_staff: value.no_of_user,
         sub_space: value.no_of_space,
-        ltime : new Date()
+        ltime: new Date(),
       },
       type: sequelize.QueryTypes.UPDATE,
     });

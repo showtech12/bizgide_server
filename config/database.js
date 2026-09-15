@@ -7,9 +7,7 @@ const sequelize = new Sequelize('bizgidedbz', 'root', '', {
 //   process.env.USER,
 //   process.env.PWD,
 //   {
-    //dialect: "mysql",
-    //host: "mysql-accusoft.alwaysdata.net",
-    //host: "localhost",
+   
     host: "127.0.0.1",
     logging: false,
     dialect: "mysql",
