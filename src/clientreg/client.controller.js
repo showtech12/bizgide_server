@@ -3,15 +3,17 @@ const sequelize = require("../../config/database");
 const { QueryTypes } = require("sequelize");
 const bcrypt = require("bcryptjs");
 
-const create = async (body) => {
+const create = async (body, options = {}) => {
   // Hash password
   //const hashedPassword = await bcrypt.hash(body.password, 10);
 
   // Replace plain password with hashed password
   //body.password = hashedPassword;
 
-  return await Clients.create(body);
+  return await Clients.create(body, options);
 };
+
+//async create(data, options = {}) { return await mClient.create(data, options); }
 
 const MaxID = async (id) => {
   const maxID = await Clients.max(id);
@@ -55,14 +57,14 @@ const getAllRecords = async (mypages) => {
   };
 };
 
-const getRecByID = async (col, colval, id) => {
-  const Record = await Clients.findOne({ where: { [col]: id } });
+const getRecByID = async (col, colval, id, options = {}) => {
+  const Record = await Clients.findOne({ where: { [col]: id }, ...options });
   Record.reg_acct_id = colval;
   await Record.save();
 };
 
 const getUser = async (id) => {
-  const OneUserDtls = await Clients.findOne({ where: { id: id } });
+  const OneUserDtls = await Clients.findOne({ where: { id: id }, });
   if (!OneUserDtls) {
     throw new usernotFoundException();
   }
@@ -102,7 +104,8 @@ const update = async (id, body) => {
   });
 };
 
-const updateOneColumn = async (id, column, value) => {
+
+const updateOneColumn = async (id, column, value, options = {}) => {
   try {
     const data = {
       [column]: value,
@@ -110,11 +113,13 @@ const updateOneColumn = async (id, column, value) => {
 
     return await Clients.update(data, {
       where: { id },
+      ...options,
     });
   } catch (error) {
     throw error;
   }
 };
+
 
 const remove = async (id) => {
   const user = await Clients.findByPk(id);
