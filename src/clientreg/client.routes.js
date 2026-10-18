@@ -622,7 +622,7 @@ router.post("/api/v2/register", async (req, res) => {
       },
       {
         la_id: 0,
-        full_name: value.company_name,
+        full_name: value.company_name.toUpperCase() + "-STOCKIN",
         contact_type: "STOCKIN",
         ptype: "",
         clt_id: client_ID,

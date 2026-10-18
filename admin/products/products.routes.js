@@ -47,14 +47,14 @@ router.post(
   verifyAdmin,
   authorizePermission("products"),
   async (req, res, next) => {
-     const client_id = req.userDtl[0].client_id;
+    const client_id = req.userDtl[0].client_id;
     // console.log(req.userDtl);
     //console.log(req.body);
     const usr_id = req.userDtl[0].id;
     const { error, value } = ProductSchema.validate(req.body);
 
     if (error) {
-     // console.log(error);
+      // console.log(error);
 
       return res.status(400).json({
         success: false,
@@ -90,9 +90,9 @@ router.post(
         // piecies_value: req.body.txtPcsInWhole,
         product_code: "100",
         dated: d,
-        mfg_date: req.body.txtMfDate ,
+        mfg_date: req.body.txtMfDate,
         expiry_date: req.body.txtExpDate,
-        clt_id:client_id
+        clt_id: client_id,
       };
 
       // console.log(myData)
@@ -107,7 +107,12 @@ router.post(
         `INSERT INTO tblunit (product_id, unit_measure, pieces_in, unitprice, costprice,clt_id)
               VALUES (?, 'PIECES', '1', ?, ?,?)`,
         {
-          replacements: [Max_ID, req.body.txtPrice,req.body.txtCostPrice,client_id],
+          replacements: [
+            Max_ID,
+            req.body.txtPrice,
+            req.body.txtCostPrice,
+            client_id,
+          ],
           type: sequelize.QueryTypes.INSERT,
         },
       );
@@ -124,7 +129,7 @@ router.post(
 
 router.post("/api/v1/addunit", verifyAdmin, async (req, res, next) => {
   //const usr_id = req.userDtl[0].dataValues.id;
-const client_id = req.userDtl[0].client_id;
+  const client_id = req.userDtl[0].client_id;
   const Joi = require("joi");
 
   //console.log(req.body);
@@ -206,7 +211,7 @@ const client_id = req.userDtl[0].client_id;
 
 router.post("/api/v1/updateunit", verifyAdmin, async (req, res, next) => {
   //const usr_id = req.userDtl[0].dataValues.id;
-const client_id = req.userDtl[0].client_id;
+  const client_id = req.userDtl[0].client_id;
   const Joi = require("joi");
 
   console.log(req.body);
@@ -292,8 +297,6 @@ const client_id = req.userDtl[0].client_id;
   }
 });
 
-
-
 router.get(
   "/api/v1/unitmeasures",
   verifyAdmin,
@@ -343,7 +346,7 @@ router.get(
   authorizePermission("products"),
   async (req, res) => {
     //console.log(req.userDtl[0].id)
-const client_id = req.userDtl[0].client_id;
+    const client_id = req.userDtl[0].client_id;
     // SELECT p.id, p.product_name, p.size, p.selling_price, p.cost_price, p.unit_sell_price, p.product_code, p.vat_amtz, p.category, p.model, p.brand , u.surname , u.othername , u.acct_no , p.bar_code, p.piecies_value FROM products p , tblusers u WHERE flag='SHOW' AND p.user_id = u.id ORDER BY p.id DESC
 
     try {
@@ -411,28 +414,34 @@ const client_id = req.userDtl[0].client_id;
 router.get(
   "/api/v1/expirenotify",
   verifyAdmin,
-   //authorizePermission("products"),
+  //authorizePermission("products"),
   async (req, res) => {
     const perct_value = Number(req.query.pv);
-const client_id = req.userDtl[0].client_id;
-   // console.log(perct_value);
+    const client_id = req.userDtl[0].client_id;
+    // console.log(perct_value);
 
     try {
       const rows = await sequelize.query(
         `
-       SELECT 
-          *,
-          DATEDIFF(expiry_date, CURDATE()) AS days_left,
-          DATEDIFF(expiry_date, mfg_date) AS total_days,
+       SELECT
+            *,
+            DATEDIFF(expiry_date, CURDATE()) AS days_left,
+            DATEDIFF(expiry_date, mfg_date) AS total_days,
 
-          ROUND(
-            (DATEDIFF(expiry_date, CURDATE()) / 
-            DATEDIFF(expiry_date, mfg_date)) * 100
-          ) AS percent_remaining
+            ROUND(
+                (
+                    DATEDIFF(expiry_date, CURDATE()) /
+                    NULLIF(DATEDIFF(expiry_date, mfg_date), 0)
+                ) * 100
+            ) AS percent_remaining
 
-      FROM products
-      WHERE mfg_date IS NOT NULL
-        AND expiry_date IS NOT NULL AND clt_id = '${client_id}';
+        FROM products
+        WHERE
+            mfg_date IS NOT NULL
+            AND mfg_date != ''
+            AND expiry_date IS NOT NULL
+            AND expiry_date != ''
+            AND clt_id = '${client_id}';
       `,
         {
           type: sequelize.QueryTypes.SELECT,
@@ -447,7 +456,7 @@ const client_id = req.userDtl[0].client_id;
         if (product.days_left <= 0) {
           expired.push(product);
         } else if (product.percent_remaining <= perct_value) {
-          console.log(product.percent_remaining);
+         // console.log(product.percent_remaining);
           //console.log(product.id )
           critical.push(product);
         } else if (product.days_left == 10) {
@@ -478,8 +487,6 @@ const client_id = req.userDtl[0].client_id;
     }
   },
 );
-
-
 
 router.post("/api/v1/hideprdt", verifyAdmin, async (req, res, next) => {
   await sequelize

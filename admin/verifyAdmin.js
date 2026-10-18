@@ -32,28 +32,34 @@ module.exports = async (req, res, next) => {
 
     const userD = await sequelize.query(
       `     SELECT 
-                 u.*,
+                u.*,
                 r.rolename,
                 r.permission,
                 r.permission_module,
-                c.id as cid,
-		            c.company_name,
+                c.company_name,
                 c.phone,
                 c.address,
+                s.id AS suborder_id,
+                s.sub_id,
+                s.client_id AS subscription_client_id,
                 s.due_date,
                 c.status,
                 c.is_active,
                 s.isactive,
-                c.suborder_id
-            FROM tblusers u
-            INNER JOIN tblrole r 
+                s.sub_status,
+                s.tnx_ref,
+                s.ref
+            FROM tblusers AS u
+            INNER JOIN tblrole AS r 
                 ON u.role_id = r.id
-            INNER JOIN clients c
-              ON u.client_id = c.id
-                INNER JOIN tblsuborder s
-              ON c.suborder_id = s.id
-            WHERE
-                    u.id = :id;`,
+            INNER JOIN clients AS c
+                ON u.client_id = c.id
+            INNER JOIN tblsuborder AS s
+                ON s.client_id = c.id
+            WHERE 
+                u.id = :id
+                AND s.isactive = 1
+                AND s.sub_status = 'ACTIVE'`,
       {
         replacements: { id: decoded.id },
         type: sequelize.QueryTypes.SELECT,

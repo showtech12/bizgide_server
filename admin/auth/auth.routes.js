@@ -72,7 +72,8 @@ router.post("/api/v1/auth/login", async (req, res) => {
                 ON s.client_id = c.id
             WHERE 
                 u.email = :email
-                AND s.isactive = 1;`,
+                AND s.isactive = 1
+                AND s.sub_status = 'ACTIVE';`,
       {
         replacements: { email: txtEmail1, password: txtPass1 },
         type: sequelize.QueryTypes.SELECT,

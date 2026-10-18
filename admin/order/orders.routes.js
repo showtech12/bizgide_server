@@ -152,6 +152,7 @@ router.get("/api/v1/poscustomer", verifyAdmin, async (req, res) => {
               p.full_name,
               p.phone_no,
               p.act_no,
+              p.contact_type,
               COALESCE(SUM(t.balance_amt), 0) AS bal
           FROM persons p
           LEFT JOIN transactions t
@@ -168,6 +169,7 @@ router.get("/api/v1/poscustomer", verifyAdmin, async (req, res) => {
               p.full_name,
               p.phone_no,
               p.act_no,
+              p.contact_type,
               SUM(t.balance_amt) AS bal
           FROM persons p
           LEFT JOIN transactions t 

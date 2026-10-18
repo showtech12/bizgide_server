@@ -278,13 +278,14 @@ router.post(
     const transaction = await sequelize.transaction();
     const client_id = req.userDtl[0].client_id;
     const subID = req.userDtl[0].suborder_id;
-    
+    console.log(subID);
     try {
       const TotalUser = await cUser.getTotalNoUser(client_id);
       const curentStaff = Number(TotalUser.totalUsers);
       //console.log(curentStaff);
 
       const maxStaff = await getTransact.checkSubUser(subID);
+     // console.log(maxStaff);
 
       if (curentStaff >= Number(maxStaff.no_of_staff)) {
         return res.status(201).json({
