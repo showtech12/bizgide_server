@@ -29,7 +29,7 @@ const { fn } = require("sequelize");
 //const transaction = await sequelize.transaction();
 
 router.get("/api/v1/posproduct", verifyAdmin, async (req, res) => {
-  //console.log(req.userDtl[0].id)
+  //console.log(req.userDtl.id)
   //console.log(req.userDtl[0].client_id);
   const client_id = req.userDtl[0].client_id;
   // const transaction = await sequelize.transaction();
@@ -142,7 +142,7 @@ router.get("/api/v1/posproduct", verifyAdmin, async (req, res) => {
 });
 
 router.get("/api/v1/poscustomer", verifyAdmin, async (req, res) => {
-  //console.log(req.userDtl[0].id)
+  //console.log(req.userDtl.id)
   const client_id = req.userDtl[0].client_id;
   let cusType = req.query.cusType;
   let qry = ``;
@@ -221,7 +221,7 @@ router.get(
   verifyAdmin,
   authorizePermission("expenses"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     let cusType = req.query.cusType;
     let qry = ``;
@@ -265,7 +265,7 @@ router.get(
   verifyAdmin,
   authorizePermission("capital"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     let cusType = req.query.cusType;
     let qry = ``;
@@ -309,7 +309,7 @@ router.get(
   verifyAdmin,
   authorizePermission("cashbook"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     let cusType = req.query.cusType;
     let qry = ``;
@@ -349,7 +349,7 @@ router.get(
 );
 
 router.get("/api/v1/wallets", verifyAdmin, async (req, res) => {
-  //console.log(req.userDtl[0].id)
+  //console.log(req.userDtl.id)
   const client_id = req.userDtl[0].client_id;
   try {
     sequelize
@@ -389,7 +389,7 @@ router.get(
   verifyAdmin,
   authorizePermission("cashbook"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     try {
       sequelize
@@ -430,7 +430,7 @@ router.get(
   verifyAdmin,
   authorizePermission("journals"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     // const qry = `SELECT id, legder_name, account_number FROM tblledger WHERE clt_id='${client_id}' AND id > '5'`
     const qry = `SELECT id, legder_name, account_number FROM tblledger WHERE id > '5'`;
@@ -470,7 +470,7 @@ router.get(
   verifyAdmin,
   authorizePermission("journals"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     // let laid = req.query.sub
 
@@ -513,7 +513,7 @@ router.get(
   verifyAdmin,
   authorizePermission("ledger"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     const ctype = req.query.ctype;
     try {
@@ -556,7 +556,7 @@ router.get(
   verifyAdmin,
   authorizePermission("cusanalys"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     try {
       sequelize
@@ -611,7 +611,7 @@ router.get(
   verifyAdmin,
   authorizePermission("ledgerbal"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     const id = req.query.id;
     const ptype = req.query.ptype;
@@ -759,7 +759,7 @@ router.post(
   verifyAdmin,
   authorizePermission("ledgerbal"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     //const id = req.query.id;
     // const ptype = req.query.ptype;
@@ -803,7 +803,7 @@ router.get(
   verifyAdmin,
   authorizePermission("stockin"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
 
     // SELECT
@@ -1262,7 +1262,7 @@ router.post(
     const or_mode = "stockin";
     const d = new Date().toISOString().split("T")[0];
     const dt = new Date();
-    const usr_id = req.userDtl[0].id;
+    const usr_id = req.userDtl.id;
     await getTransact.checkoutWithRetry(async () => {
       try {
         // STEP 1: Get the STOCKIN person ID
@@ -1622,7 +1622,7 @@ router.post(
   verifyAdmin,
   authorizePermission("salesrecord"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     //console.log(req.body);
     const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
@@ -1846,7 +1846,7 @@ router.post(
   verifyAdmin,
   authorizePermission("salesrecord"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     //console.log(req.body);
     const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
@@ -1982,7 +1982,7 @@ router.post(
   verifyAdmin,
   authorizePermission("salesrecord"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     //console.log(req.body);
     const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
@@ -2249,7 +2249,7 @@ router.post(
   verifyAdmin,
   authorizePermission("salesincome"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     // console.log(req.body);
     const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
@@ -2366,7 +2366,7 @@ router.post(
   verifyAdmin,
   authorizePermission("saleanalysis"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     // console.log(req.body);
     const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
@@ -2541,7 +2541,7 @@ router.post(
   verifyAdmin,
   authorizePermission("evacuate"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     // console.log(req.body);
     const client_id = req.userDtl[0].client_id;
     const schema = Joi.object({
@@ -2793,7 +2793,7 @@ router.post(
         }
 
         // ===================== SYSTEM VALUES =====================
-        const usr_id = req.userDtl[0].id;
+        const usr_id = req.userDtl.id;
         const dateId = await getDateid.getDateID(client_id);
 
         const cashid = await getTransact.get1Col(
@@ -2983,7 +2983,7 @@ router.post(
       }
 
       // ===================== SYSTEM VALUES =====================
-      const usr_id = req.userDtl[0].id;
+      const usr_id = req.userDtl.id;
       const dateId = await getDateid.getDateID(client_id);
 
       // ===================== POSTING LOGIC =====================
@@ -3197,7 +3197,7 @@ router.post(
         }
 
         // ===================== SYSTEM VALUES =====================
-        const usr_id = req.userDtl[0].id;
+        const usr_id = req.userDtl.id;
         const dateId = await getDateid.getDateID(client_id);
         const cashid = await getTransact.get1Col(
           "la_id",
@@ -3390,7 +3390,7 @@ router.post(
         }
 
         // ===================== SYSTEM VALUES =====================
-        const usr_id = req.userDtl[0].id;
+        const usr_id = req.userDtl.id;
         const dateId = await getDateid.getDateID(client_id);
         const cashid = await getTransact.get1Col(
           "la_id",
@@ -3591,7 +3591,7 @@ router.post(
         // }
 
         // ===================== SYSTEM VALUES =====================
-        const usr_id = req.userDtl[0].id;
+        const usr_id = req.userDtl.id;
         const dateId = await getDateid.getDateID(client_id);
         const cashid = await getTransact.get1Col(
           "la_id",
@@ -3800,7 +3800,7 @@ router.post(
         // }
 
         // ===================== SYSTEM VALUES =====================
-        const usr_id = req.userDtl[0].id;
+        const usr_id = req.userDtl.id;
         const dateId = await getDateid.getDateID(client_id);
         const cashid = await getTransact.get1Col(
           "la_id",
@@ -3877,7 +3877,7 @@ router.post("/api/v1/gettransact", verifyAdmin, async (req, res) => {
 
   const client_id = req.userDtl[0].client_id;
   const str_id = req.userDtl[0].store_id;
-  const usr_id = req.userDtl[0].id;
+  const usr_id = req.userDtl.id;
 
   const { idempotency_key, sequence_no, created_at } = req.body;
 
@@ -4366,7 +4366,7 @@ router.post("/api/v1/gettransactRI", verifyAdmin, async (req, res, next) => {
 
   const client_id = req.userDtl[0].client_id;
   const str_id = req.userDtl[0].store_id;
-  const usr_id = req.userDtl[0].id;
+  const usr_id = req.userDtl.id;
 
   const { idempotency_key, sequence_no, created_at } = req.body;
 
@@ -5467,7 +5467,7 @@ router.get(
   verifyAdmin,
   authorizePermission("stockout"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     const miniVal = req.query.mv;
 
@@ -5548,7 +5548,7 @@ router.get(
   verifyAdmin,
   authorizePermission("all_inventory"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     try {
       sequelize
@@ -5618,7 +5618,7 @@ router.get(
 );
 
 router.get("/api/v1/allpinvoice", verifyAdmin, async (req, res) => {
-  //console.log(req.userDtl[0].id)
+  //console.log(req.userDtl.id)
   let pid = req.query.pid;
   //console.log(pid)
   const client_id = req.userDtl[0].client_id;
@@ -5670,7 +5670,7 @@ router.get("/api/v1/allpinvoice", verifyAdmin, async (req, res) => {
 });
 
 router.get("/api/v1/viewRcpt", verifyAdmin, async (req, res) => {
-  //console.log(req.userDtl[0].id)
+  //console.log(req.userDtl.id)
   let oid = req.query.oid;
   // console.log(oid)
   const client_id = req.userDtl[0].client_id;
@@ -5711,7 +5711,7 @@ router.get("/api/v1/viewRcpt", verifyAdmin, async (req, res) => {
 });
 
 router.get("/api/v1/stores", verifyAdmin, async (req, res) => {
-  //console.log(req.userDtl[0].id)
+  //console.log(req.userDtl.id)
   const client_id = req.userDtl[0].client_id;
   try {
     sequelize

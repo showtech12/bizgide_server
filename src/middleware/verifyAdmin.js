@@ -29,22 +29,35 @@ module.exports = async (req, res, next) => {
       });
     }
 
-    const userD = await sequelize.query(
-      `SELECT 
-          u.*,
-          r.rolename,
-          r.permission
-      FROM users u
-      INNER JOIN tblrole r
-          ON u.role_id = r.id
-      WHERE u.id = :id;`,
-      {
-        replacements: { id: decoded.id },
-        type: sequelize.QueryTypes.SELECT,
-      },
-    );
+    // const userD = await sequelize.query(
+    //   `	SELECT
+    //       u.*,
+    //       r.name AS role_name,
+    //       GROUP_CONCAT(DISTINCT p.name) AS permissions
+    //     FROM users u
+    //     INNER JOIN roles_adm r
+    //       ON r.id = u.role_id
+    //     LEFT JOIN role_permissions_adm rp
+    //       ON rp.role_id = r.id
+    //     LEFT JOIN permissions_adm p
+    //       ON p.id = rp.permission_id
+    //     WHERE u.id = :id
+    //     GROUP BY
+    //       u.id,
+    //       u.surname,
+    //       u.othername,
+    //       u.email,
+    //       u.phone,
+    //       r.name`,
+    //   {
+    //     replacements: { id: decoded.id },
+    //     type: sequelize.QueryTypes.SELECT,
+    //   },
+    // );
 
-    req.userDtl = userD;
+    //console.log(userD);
+    req.userDtl = decoded.userData;
+    req.permissions = decoded.userData.permissions;
     req.currentToken = accessToken;
 
     next();

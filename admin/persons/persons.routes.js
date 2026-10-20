@@ -52,12 +52,12 @@ router.post("/api/v1/updtpass", verifyAdmin, async (req, res, next) => {
   // const ResetCode = req.body.resetcode;
   // const newpass = req.body.newpass;
   const client_id = req.userDtl[0].client_id;
-const transaction = await sequelize.transaction();
+  const transaction = await sequelize.transaction();
   const { txtPassW, txtNewPassW, txtCNewPassW } = req.body;
   const BodyDetails = { txtPassW, txtNewPassW, txtCNewPassW };
 
   let OldPass = req.userDtl[0].pass_Word;
-  let Pid = req.userDtl[0].id;
+  let Pid = req.userDtl.id;
 
   const schema = Joi.object({
     txtPassW: Joi.string()
@@ -98,18 +98,19 @@ const transaction = await sequelize.transaction();
   sequelize
     .query(`UPDATE persons SET pass_Word = :pass_Word WHERE id= :id`, {
       replacements: { pass_Word: req.body.txtNewPassW, id: Pid },
-      type: sequelize.QueryTypes.UPDATE,transaction
+      type: sequelize.QueryTypes.UPDATE,
+      transaction,
     })
 
     .then((results) => {
-      transaction.commit()
+      transaction.commit();
       res.json({
         success: true,
         message: "Successsful",
       });
     })
     .catch((error) => {
-      transaction.rollback()
+      transaction.rollback();
       //console.error('Error fetching data:', error);
       res.status(200).json({
         success: false,
@@ -133,9 +134,8 @@ const transaction = await sequelize.transaction();
   // });
 });
 
-
 router.post("/api/v1/custsettings", verifyAdmin, async (req, res, next) => {
- // console.log(req.body);
+  // console.log(req.body);
   const { cboActive1 } = req.body;
   const BodyDetails = { cboActive1 };
 
@@ -225,8 +225,6 @@ router.post("/api/v1/changepasscrt", async (req, res, next) => {
   });
 });
 
-
-
 router.post("/api/v1/profilepix", uploadMiddleware, (req, res) => {
   // console.log(req.files)
   console.log(req.uploadedFile.path);
@@ -277,7 +275,7 @@ router.get("/verify/:id", async (req, res, next) => {
 });
 
 router.get("/api/v1/person", verifyAdmin, async (req, res, next) => {
-  const id = req.userDtl[0].id;
+  const id = req.userDtl.id;
 
   const pages = await cPersons.getPerson(id);
   res.status(200).json({
@@ -382,21 +380,24 @@ router.post("/api/v1/personupdt", verifyAdmin, async (req, res) => {
   }
 
   const newP = await cPersons.UpdatePerson(pid, req.body, transaction);
-transaction.commit()
-  res.status(200).json({
-    success: true,
-    message: "Record Updated",
-    data: newP,
-  }).catch((error)=>{
-    transaction.rollback();
-    console.log(error);
-  });
+  transaction.commit();
+  res
+    .status(200)
+    .json({
+      success: true,
+      message: "Record Updated",
+      data: newP,
+    })
+    .catch((error) => {
+      transaction.rollback();
+      console.log(error);
+    });
 });
 
 //router.post("/api/v1/person",verifyPerson, authorizePermission('ADMIN'),
 router.post("/api/v1/person", async (req, res, next) => {
   const transaction = await sequelize.transaction();
-  
+
   //const { error, value } = schema.validate(req.body, { abortEarly: false });
   const { error, value } = PersonSchema.validate(req.body);
   //console.log(req.body);
@@ -571,7 +572,7 @@ router.get(
   authorizePermission("ADMIN", "USER"),
   async (req, res) => {
     const client_id = req.userDtl[0].client_id;
-    const pages = await cPersons.getAllCustomers(req.mypages,client_id);
+    const pages = await cPersons.getAllCustomers(req.mypages, client_id);
     res.status(200).json({
       success: true,
       data: pages,
@@ -580,6 +581,5 @@ router.get(
     //res.send(pages);
   },
 );
-
 
 module.exports = router;

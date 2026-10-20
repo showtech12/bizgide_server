@@ -10,6 +10,7 @@ const BizAdminAth = require("./src/auth/auth.routes");
 const BizAdminClients = require("./src/clientreg/client.routes");
 const BizAdminReport = require("./src/reports/reports.routes");
 const BizAdminUser = require("./src/users/user.routes");
+const BizAdminSettings = require("./src/settings/settings.routes");
 const BackupRouter = require("./admin/backup/backup.routes");
 const SettingsRouter = require("./admin/settings/settings.routes");
 
@@ -85,6 +86,7 @@ app.use(BizAdminUser);
 app.use(AuthRouter);
 app.use(BackupRouter);
 app.use(SettingsRouter);
+app.use(BizAdminSettings);
 
 const PORT = 3009;
 

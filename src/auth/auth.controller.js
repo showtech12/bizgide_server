@@ -35,23 +35,24 @@ const login = async (req, res) => {
     const users = await sequelize.query(
       `
       SELECT
-        u.id,
-        u.surname,
-        u.othername,
-        u.email,
-        u.phone,
-        u.role_id,
-        u.password,
-        r.rolename,
-        r.permission
-        
-      FROM users u
-      INNER JOIN tblrole r
-        ON u.role_id = r.id
-      WHERE
-        u.email = :email
-        
-      LIMIT 1
+          u.*,
+          r.name AS role_name,
+          GROUP_CONCAT(DISTINCT p.name) AS permissions
+        FROM users u
+        INNER JOIN roles_adm r
+          ON r.id = u.role_id
+        LEFT JOIN role_permissions_adm rp
+          ON rp.role_id = r.id
+        LEFT JOIN permissions_adm p
+          ON p.id = rp.permission_id
+        WHERE u.email = :email
+        GROUP BY
+          u.id,
+          u.surname,
+          u.othername,
+          u.email,
+          u.phone,
+          r.name
       `,
       {
         replacements: { email: txtEmail },
@@ -86,6 +87,7 @@ const login = async (req, res) => {
         id: user.id,
         email: user.email,
         role_id: user.role_id,
+        userData: user,
         auth_type: "BizAdmn",
       },
       process.env.JWT_SECRET,

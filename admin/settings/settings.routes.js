@@ -14,7 +14,9 @@ const authorizePermission = require("../auth_role.js");
 const getTransact = require("../../shared/getTrans.js");
 
 const sequelize = require("../../config/database");
-const { initializeSubscriptionPayment } = require("../../shared/paymentInitialize.js");
+const {
+  initializeSubscriptionPayment,
+} = require("../../shared/paymentInitialize.js");
 const { verifySubscriptionPayment } = require("../../shared/verifypayment.js");
 
 router.post(
@@ -121,15 +123,14 @@ router.get(
   //verifyAdmin,
   // authorizePermission("settings"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
-   // const client_id = req.userDtl[0].client_id;
-   //console.log("subsss")
+    //console.log(req.userDtl.id)
+    // const client_id = req.userDtl[0].client_id;
+    //console.log("subsss")
     try {
       sequelize
-        .query(
-          `SELECT * FROM tblsubscription WHERE sub_name != 'TRAIL'`,
-          { type: sequelize.QueryTypes.SELECT },
-        )
+        .query(`SELECT * FROM tblsubscription WHERE sub_name != 'TRAIL'`, {
+          type: sequelize.QueryTypes.SELECT,
+        })
         .then((results) => {
           // console.log('Query result:', results);
           res.status(200).json({
@@ -139,7 +140,7 @@ router.get(
           });
         })
         .catch((error) => {
-         // console.error('Error fetching data:', error);
+          // console.error('Error fetching data:', error);
           res.status(200).json({
             success: false,
             data: "",
@@ -159,24 +160,21 @@ router.get(
 
 router.post(
   "/api/v1/subscription/initialize",
- // verifyAdmin,
-  initializeSubscriptionPayment
+  // verifyAdmin,
+  initializeSubscriptionPayment,
 );
-
 
 router.get(
-   "/api/v1/subscription/verify/:reference",
- // verifyAdmin,
-  verifySubscriptionPayment
+  "/api/v1/subscription/verify/:reference",
+  // verifyAdmin,
+  verifySubscriptionPayment,
 );
-
-
 
 // router.post(
 //   "/api/v1/subscription/initialize",
 //   (req, res) => {
 //     console.log("PAYSTACK INITIALIZE ROUTE HIT");
-    
+
 //     return res.status(200).json({
 //       success: true,
 //       message: "Route is working",
@@ -189,7 +187,7 @@ router.get(
   verifyAdmin,
   // authorizePermission("settings"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     try {
       sequelize
@@ -257,7 +255,7 @@ router.get(
   verifyAdmin,
   // authorizePermission("settings"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     try {
       sequelize
@@ -298,7 +296,7 @@ router.get(
   verifyAdmin,
   // authorizePermission("view_role"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     try {
       sequelize

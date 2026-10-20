@@ -3,6 +3,7 @@ const router = express.Router();
 const cClient = require("../clientreg/client.controller");
 const { RegisterClientSchema } = require("../validation/ClientValidate");
 const verifyAdmin = require("../middleware/verifyAdmin");
+const AuthPermission = require("../middleware/AuthPermission");
 const Tools = require("../shared/commonTools");
 const pagination = require("../shared/pagination");
 const bcrypt = require("bcryptjs");
@@ -12,38 +13,42 @@ const mPersons = require("../../admin/persons/persons.model");
 const mRoles = require("../roles/roles.model");
 const Joi = require("joi");
 
-router.get("/api/v2/dashboard", verifyAdmin, async (req, res) => {
-  try {
-    const [clients, Revenue, subOrders] = await Promise.all([
-      // Query 1 - Clients
-      sequelize.query(
-        `
+router.get(
+  "/api/v2/dashboard",
+  verifyAdmin,
+  //AuthPermission("sub_view"),
+  async (req, res) => {
+    try {
+      const [clients, Revenue, subOrders] = await Promise.all([
+        // Query 1 - Clients
+        sequelize.query(
+          `
         SELECT *
         FROM clients
         ORDER BY id DESC
         `,
-        {
-          type: QueryTypes.SELECT,
-        },
-      ),
+          {
+            type: QueryTypes.SELECT,
+          },
+        ),
 
-      // Query 2 - Subscription Plans
-      sequelize.query(
-        `
+        // Query 2 - Subscription Plans
+        sequelize.query(
+          `
         SELECT 
             SUM(s.sub_amount) as revenue
         FROM tblsuborder AS o
         INNER JOIN tblsubscription AS s 
             ON o.sub_id = s.id;
         `,
-        {
-          type: QueryTypes.SELECT,
-        },
-      ),
+          {
+            type: QueryTypes.SELECT,
+          },
+        ),
 
-      // Query 3 - Subscription Orders
-      sequelize.query(
-        `
+        // Query 3 - Subscription Orders
+        sequelize.query(
+          `
        		SELECT
             c.company_name,
             c.surname,
@@ -74,46 +79,50 @@ router.get("/api/v2/dashboard", verifyAdmin, async (req, res) => {
         LIMIT 5
             ;
         `,
-        {
-          type: QueryTypes.SELECT,
+          {
+            type: QueryTypes.SELECT,
+          },
+        ),
+      ]);
+
+      const activeClients = clients.filter(
+        (client) => client.is_active == 1,
+      ).length;
+      const deactiveClients = clients.filter(
+        (client) => client.is_active == 0,
+      ).length;
+      const TotalClients = clients.length;
+
+      return res.status(200).json({
+        success: true,
+        message: "Dashboard data fetched successfully",
+
+        data: {
+          TotalClients,
+          deactiveClients,
+          activeClients,
+          Revenue,
+          subOrders,
         },
-      ),
-    ]);
+      });
+    } catch (error) {
+      console.error("Dashboard error:", error);
 
-    const activeClients = clients.filter((client) => client.is_active == 1).length;
-    const deactiveClients = clients.filter((client) => client.is_active == 0).length;
-    const TotalClients = clients.length;
-
-    return res.status(200).json({
-      success: true,
-      message: "Dashboard data fetched successfully",
-
-      data: {
-        TotalClients,
-        deactiveClients,
-        activeClients,
-        Revenue,
-        subOrders,
-        
-      },
-    });
-  } catch (error) {
-    console.error("Dashboard error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch dashboard data",
-      error: error.message,
-    });
-  }
-});
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch dashboard data",
+        error: error.message,
+      });
+    }
+  },
+);
 
 router.get(
   "/api/v2/subclienthist",
   verifyAdmin,
-  //authorizePermission("expenses"),
+  AuthPermission("sub_view"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     cid = req.query.id;
     let qry = ``;
 
@@ -178,9 +187,9 @@ router.get(
 router.get(
   "/api/v2/activeplan",
   verifyAdmin,
-  //authorizePermission("expenses"),
+  AuthPermission("sub_view"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
 
     let qry = ``;
 
@@ -247,7 +256,7 @@ router.get(
   verifyAdmin,
   //authorizePermission("expenses"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
 
     let qry = ``;
 
@@ -311,10 +320,10 @@ router.get(
 
 router.get(
   "/api/v2/allplansWeb",
-  //verifyAdmin,
+  //verifyAdmin, sub_history_view
   //authorizePermission("expenses"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
 
     let qry = ``;
 
@@ -353,9 +362,9 @@ router.get(
 router.get(
   "/api/v2/allplans",
   verifyAdmin,
-  //authorizePermission("expenses"),
+  AuthPermission("sub_view"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
 
     let qry = ``;
 
@@ -391,79 +400,83 @@ router.get(
   },
 );
 
-router.post("/api/v2/createplan", verifyAdmin, async (req, res) => {
-  try {
-    // ============================================================
-    // 1. VALIDATE REQUEST BODY
-    // ============================================================
+router.post(
+  "/api/v2/createplan",
+  verifyAdmin,
+  AuthPermission("sub_create"),
+  async (req, res) => {
+    try {
+      // ============================================================
+      // 1. VALIDATE REQUEST BODY
+      // ============================================================
 
-    const schema = Joi.object({
-      plan_name: Joi.string().trim().min(2).max(100).required().messages({
-        "string.empty": "Plan name is required",
-        "string.min": "Plan name must be at least 2 characters",
-        "any.required": "Plan name is required",
-      }),
-
-      period: Joi.number()
-        .integer()
-        //.valid(1, 3, 6, 9, 12)
-        .required()
-        .messages({
-          "number.base": "Subscription period must be a number",
-          "any.only": "Subscription period must be 1, 3, 6, 9, or 12 months",
-          "any.required": "Subscription period is required",
+      const schema = Joi.object({
+        plan_name: Joi.string().trim().min(2).max(100).required().messages({
+          "string.empty": "Plan name is required",
+          "string.min": "Plan name must be at least 2 characters",
+          "any.required": "Plan name is required",
         }),
 
-      amount: Joi.number().positive().precision(2).required().messages({
-        "number.base": "Subscription amount must be a number",
-        "number.positive": "Subscription amount must be greater than 0",
-        "any.required": "Subscription amount is required",
-      }),
+        period: Joi.number()
+          .integer()
+          //.valid(1, 3, 6, 9, 12)
+          .required()
+          .messages({
+            "number.base": "Subscription period must be a number",
+            "any.only": "Subscription period must be 1, 3, 6, 9, or 12 months",
+            "any.required": "Subscription period is required",
+          }),
 
-      no_of_user: Joi.number().integer().min(1).required().messages({
-        "number.base": "Number of staff must be a number",
-        "number.integer": "Number of staff must be a whole number",
-        "number.min": "Number of staff must be at least 1",
-        "any.required": "Number of staff is required",
-      }),
+        amount: Joi.number().positive().precision(2).required().messages({
+          "number.base": "Subscription amount must be a number",
+          "number.positive": "Subscription amount must be greater than 0",
+          "any.required": "Subscription amount is required",
+        }),
 
-      no_of_space: Joi.number().integer().min(1).required().messages({
-        "number.base": "Subscription space must be a number",
-        "number.integer": "Subscription space must be a whole number",
-        "number.min": "Subscription space must be at least 1",
-        "any.required": "Subscription space is required",
-      }),
-    });
+        no_of_user: Joi.number().integer().min(1).required().messages({
+          "number.base": "Number of staff must be a number",
+          "number.integer": "Number of staff must be a whole number",
+          "number.min": "Number of staff must be at least 1",
+          "any.required": "Number of staff is required",
+        }),
 
-    const { error, value } = schema.validate(req.body, {
-      abortEarly: false,
-      stripUnknown: true,
-    });
-
-    if (error) {
-      return res
-        .status(400)
-        .json({ success: false, message: error.details[0].message });
-    }
-
-    // ============================================================
-    // 2. GET LOGGED-IN USER ID
-    // ============================================================
-
-    const user_id = req.userDtl?.[0]?.id;
-
-    if (!user_id) {
-      return res.status(401).json({
-        success: false,
-        message: "Unable to identify logged-in user",
+        no_of_space: Joi.number().integer().min(1).required().messages({
+          "number.base": "Subscription space must be a number",
+          "number.integer": "Subscription space must be a whole number",
+          "number.min": "Subscription space must be at least 1",
+          "any.required": "Subscription space is required",
+        }),
       });
-    }
 
-    // ============================================================
-    // 3. INSERT INTO tblsubscription
-    // ============================================================
+      const { error, value } = schema.validate(req.body, {
+        abortEarly: false,
+        stripUnknown: true,
+      });
 
-    const qry = `
+      if (error) {
+        return res
+          .status(400)
+          .json({ success: false, message: error.details[0].message });
+      }
+
+      // ============================================================
+      // 2. GET LOGGED-IN USER ID
+      // ============================================================
+
+      const user_id = req.userDtl?.[0]?.id;
+
+      if (!user_id) {
+        return res.status(401).json({
+          success: false,
+          message: "Unable to identify logged-in user",
+        });
+      }
+
+      // ============================================================
+      // 3. INSERT INTO tblsubscription
+      // ============================================================
+
+      const qry = `
         INSERT INTO tblsubscription
         (
           sub_name,
@@ -484,139 +497,148 @@ router.post("/api/v2/createplan", verifyAdmin, async (req, res) => {
         )
       `;
 
-    const [result] = await sequelize.query(qry, {
-      replacements: {
-        sub_name: value.plan_name,
-        sub_period: value.period,
-        sub_amount: value.amount,
-        no_of_staff: value.no_of_user,
-        sub_space: value.no_of_space,
-        user_id: user_id,
-      },
-      type: sequelize.QueryTypes.INSERT,
-    });
+      const [result] = await sequelize.query(qry, {
+        replacements: {
+          sub_name: value.plan_name,
+          sub_period: value.period,
+          sub_amount: value.amount,
+          no_of_staff: value.no_of_user,
+          sub_space: value.no_of_space,
+          user_id: user_id,
+        },
+        type: sequelize.QueryTypes.INSERT,
+      });
 
-    // ============================================================
-    // 4. RESPONSE
-    // ============================================================
+      // ============================================================
+      // 4. RESPONSE
+      // ============================================================
 
-    return res.status(201).json({
-      success: true,
-      message: "Subscription plan created successfully",
-      //   data: {
-      //     id: result,
-      //     sub_name: value.sub_name,
-      //     sub_period: value.sub_period,
-      //     sub_amount: value.sub_amount,
-      //     no_of_staff: value.no_of_staff,
-      //     sub_space: value.sub_space,
-      //     user_id: user_id,
-      //   },
-    });
-  } catch (error) {
-    console.error("Create subscription plan error:", error);
+      return res.status(201).json({
+        success: true,
+        message: "Subscription plan created successfully",
+        //   data: {
+        //     id: result,
+        //     sub_name: value.sub_name,
+        //     sub_period: value.sub_period,
+        //     sub_amount: value.sub_amount,
+        //     no_of_staff: value.no_of_staff,
+        //     sub_space: value.sub_space,
+        //     user_id: user_id,
+        //   },
+      });
+    } catch (error) {
+      console.error("Create subscription plan error:", error);
 
-    return res.status(500).json({
-      success: false,
-      message: "Failed to create subscription plan",
-      error: error.message,
-    });
-  }
-});
-
-router.post("/api/v2/updateplan", verifyAdmin, async (req, res) => {
-  try {
-    console.log(req.body);
-    // ============================================================
-    // 1. VALIDATE REQUEST BODY
-    // ============================================================
-
-    const schema = Joi.object({
-      id: Joi.number().integer().positive().required().messages({
-        "number.base": "Plan ID must be a number",
-        "number.integer": "Plan ID must be a whole number",
-        "number.positive": "Plan ID must be greater than 0",
-        "any.required": "Plan ID is required",
-      }),
-
-      plan_name: Joi.string().trim().min(2).max(100).required().messages({
-        "string.empty": "Plan name is required",
-        "string.min": "Plan name must be at least 2 characters",
-        "any.required": "Plan name is required",
-      }),
-
-      period: Joi.number().integer().valid(1, 3, 6, 9, 12).required().messages({
-        "number.base": "Subscription period must be a number",
-        "any.only": "Subscription period must be 1, 3, 6, 9, or 12 months",
-        "any.required": "Subscription period is required",
-      }),
-
-      amount: Joi.number().positive().precision(2).required().messages({
-        "number.base": "Subscription amount must be a number",
-        "number.positive": "Subscription amount must be greater than 0",
-        "any.required": "Subscription amount is required",
-      }),
-
-      no_of_user: Joi.number().integer().min(1).required().messages({
-        "number.base": "Number of staff must be a number",
-        "number.integer": "Number of staff must be a whole number",
-        "number.min": "Number of staff must be at least 1",
-        "any.required": "Number of staff is required",
-      }),
-
-      no_of_space: Joi.number().integer().min(1).required().messages({
-        "number.base": "Subscription space must be a number",
-        "number.integer": "Subscription space must be a whole number",
-        "number.min": "Subscription space must be at least 1",
-        "any.required": "Subscription space is required",
-      }),
-    });
-
-    const { error, value } = schema.validate(req.body, {
-      abortEarly: false,
-      stripUnknown: true,
-    });
-
-    // ============================================================
-    // 2. VALIDATION ERROR
-    // ============================================================
-
-    if (error) {
-      return res
-        .status(400)
-        .json({ success: false, message: error.details[0].message });
+      return res.status(500).json({
+        success: false,
+        message: "Failed to create subscription plan",
+        error: error.message,
+      });
     }
+  },
+);
 
-    // ============================================================
-    // 3. CHECK THAT PLAN EXISTS
-    // ============================================================
+router.post(
+  "/api/v2/updateplan",
+  verifyAdmin,
+  AuthPermission("sub_update"),
+  async (req, res) => {
+    try {
+      console.log(req.body);
+      // ============================================================
+      // 1. VALIDATE REQUEST BODY
+      // ============================================================
 
-    const checkQuery = `
+      const schema = Joi.object({
+        id: Joi.number().integer().positive().required().messages({
+          "number.base": "Plan ID must be a number",
+          "number.integer": "Plan ID must be a whole number",
+          "number.positive": "Plan ID must be greater than 0",
+          "any.required": "Plan ID is required",
+        }),
+
+        plan_name: Joi.string().trim().min(2).max(100).required().messages({
+          "string.empty": "Plan name is required",
+          "string.min": "Plan name must be at least 2 characters",
+          "any.required": "Plan name is required",
+        }),
+
+        period: Joi.number()
+          .integer()
+          .valid(1, 3, 6, 9, 12)
+          .required()
+          .messages({
+            "number.base": "Subscription period must be a number",
+            "any.only": "Subscription period must be 1, 3, 6, 9, or 12 months",
+            "any.required": "Subscription period is required",
+          }),
+
+        amount: Joi.number().positive().precision(2).required().messages({
+          "number.base": "Subscription amount must be a number",
+          "number.positive": "Subscription amount must be greater than 0",
+          "any.required": "Subscription amount is required",
+        }),
+
+        no_of_user: Joi.number().integer().min(1).required().messages({
+          "number.base": "Number of staff must be a number",
+          "number.integer": "Number of staff must be a whole number",
+          "number.min": "Number of staff must be at least 1",
+          "any.required": "Number of staff is required",
+        }),
+
+        no_of_space: Joi.number().integer().min(1).required().messages({
+          "number.base": "Subscription space must be a number",
+          "number.integer": "Subscription space must be a whole number",
+          "number.min": "Subscription space must be at least 1",
+          "any.required": "Subscription space is required",
+        }),
+      });
+
+      const { error, value } = schema.validate(req.body, {
+        abortEarly: false,
+        stripUnknown: true,
+      });
+
+      // ============================================================
+      // 2. VALIDATION ERROR
+      // ============================================================
+
+      if (error) {
+        return res
+          .status(400)
+          .json({ success: false, message: error.details[0].message });
+      }
+
+      // ============================================================
+      // 3. CHECK THAT PLAN EXISTS
+      // ============================================================
+
+      const checkQuery = `
         SELECT id
         FROM tblsubscription
         WHERE id = :id
         LIMIT 1
       `;
 
-    const [existingPlan] = await sequelize.query(checkQuery, {
-      replacements: {
-        id: value.id,
-      },
-      type: sequelize.QueryTypes.SELECT,
-    });
-
-    if (!existingPlan) {
-      return res.status(404).json({
-        success: false,
-        message: "Subscription plan not found",
+      const [existingPlan] = await sequelize.query(checkQuery, {
+        replacements: {
+          id: value.id,
+        },
+        type: sequelize.QueryTypes.SELECT,
       });
-    }
 
-    // ============================================================
-    // 4. UPDATE PLAN
-    // ============================================================
+      if (!existingPlan) {
+        return res.status(404).json({
+          success: false,
+          message: "Subscription plan not found",
+        });
+      }
 
-    const updateQuery = `
+      // ============================================================
+      // 4. UPDATE PLAN
+      // ============================================================
+
+      const updateQuery = `
         UPDATE tblsubscription
         SET
           sub_name = :sub_name,
@@ -628,44 +650,45 @@ router.post("/api/v2/updateplan", verifyAdmin, async (req, res) => {
         WHERE id = :id
       `;
 
-    const [result] = await sequelize.query(updateQuery, {
-      replacements: {
-        id: value.id,
-        sub_name: value.plan_name,
-        sub_period: value.period,
-        sub_amount: value.amount,
-        no_of_staff: value.no_of_user,
-        sub_space: value.no_of_space,
-        ltime: new Date(),
-      },
-      type: sequelize.QueryTypes.UPDATE,
-    });
+      const [result] = await sequelize.query(updateQuery, {
+        replacements: {
+          id: value.id,
+          sub_name: value.plan_name,
+          sub_period: value.period,
+          sub_amount: value.amount,
+          no_of_staff: value.no_of_user,
+          sub_space: value.no_of_space,
+          ltime: new Date(),
+        },
+        type: sequelize.QueryTypes.UPDATE,
+      });
 
-    // ============================================================
-    // 5. RESPONSE
-    // ============================================================
+      // ============================================================
+      // 5. RESPONSE
+      // ============================================================
 
-    return res.status(200).json({
-      success: true,
-      message: "Subscription plan updated successfully",
-      data: {
-        id: value.id,
-        sub_name: value.sub_name,
-        sub_period: value.sub_period,
-        sub_amount: value.sub_amount,
-        no_of_staff: value.no_of_staff,
-        sub_space: value.sub_space,
-      },
-    });
-  } catch (error) {
-    console.error("Update subscription plan error:", error);
+      return res.status(200).json({
+        success: true,
+        message: "Subscription plan updated successfully",
+        data: {
+          id: value.id,
+          sub_name: value.sub_name,
+          sub_period: value.sub_period,
+          sub_amount: value.sub_amount,
+          no_of_staff: value.no_of_staff,
+          sub_space: value.sub_space,
+        },
+      });
+    } catch (error) {
+      console.error("Update subscription plan error:", error);
 
-    return res.status(500).json({
-      success: false,
-      message: "Failed to update subscription plan",
-      error: error.message,
-    });
-  }
-});
+      return res.status(500).json({
+        success: false,
+        message: "Failed to update subscription plan",
+        error: error.message,
+      });
+    }
+  },
+);
 
 module.exports = router;

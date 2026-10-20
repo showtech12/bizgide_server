@@ -19,7 +19,7 @@ router.get(
   verifyAdmin,
   authorizePermission("backup"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
 
     try {
       sequelize

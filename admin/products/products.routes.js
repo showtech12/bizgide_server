@@ -50,7 +50,7 @@ router.post(
     const client_id = req.userDtl[0].client_id;
     // console.log(req.userDtl);
     //console.log(req.body);
-    const usr_id = req.userDtl[0].id;
+    const usr_id = req.userDtl.id;
     const { error, value } = ProductSchema.validate(req.body);
 
     if (error) {
@@ -345,7 +345,7 @@ router.get(
   verifyAdmin,
   authorizePermission("products"),
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
     const client_id = req.userDtl[0].client_id;
     // SELECT p.id, p.product_name, p.size, p.selling_price, p.cost_price, p.unit_sell_price, p.product_code, p.vat_amtz, p.category, p.model, p.brand , u.surname , u.othername , u.acct_no , p.bar_code, p.piecies_value FROM products p , tblusers u WHERE flag='SHOW' AND p.user_id = u.id ORDER BY p.id DESC
 
@@ -456,7 +456,7 @@ router.get(
         if (product.days_left <= 0) {
           expired.push(product);
         } else if (product.percent_remaining <= perct_value) {
-         // console.log(product.percent_remaining);
+          // console.log(product.percent_remaining);
           //console.log(product.id )
           critical.push(product);
         } else if (product.days_left == 10) {

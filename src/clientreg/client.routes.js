@@ -3,6 +3,7 @@ const router = express.Router();
 const cClient = require("../clientreg/client.controller");
 const { RegisterClientSchema } = require("../validation/ClientValidate");
 const verifyAdmin = require("../middleware/verifyAdmin");
+const AuthPermission = require("../middleware/AuthPermission");
 const Tools = require("../shared/commonTools");
 const pagination = require("../shared/pagination");
 const bcrypt = require("bcryptjs");
@@ -15,7 +16,7 @@ const cRoles = require("../roles/roles.controller");
 
 // router.post("/api/v2/register", async (req, res) => {
 //   // console.log(req.body);
-//   //console.log(req.userDtl[0].id);
+//   //console.log(req.userDtl.id);
 //   const transaction = await sequelize.transaction();
 //   try {
 //     //console.log("Create Register request:", req.body);
@@ -93,7 +94,7 @@ const cRoles = require("../roles/roles.controller");
 //         isactive,
 //         sub_status,
 //         start_date
-      
+
 //       )
 //     VALUES
 //       (
@@ -103,7 +104,7 @@ const cRoles = require("../roles/roles.controller");
 //         :isactive,
 //         :sub_status,
 //         :startDate
-        
+
 //       )`,
 //       {
 //         replacements: {
@@ -334,8 +335,6 @@ const cRoles = require("../roles/roles.controller");
 //   }
 // });
 
-
-
 router.post("/api/v2/register", async (req, res) => {
   const transaction = await sequelize.transaction();
 
@@ -357,11 +356,9 @@ router.post("/api/v2/register", async (req, res) => {
     // =========================================================
     // 2. CHECK PHONE
     // =========================================================
-    const existingPhone = await cClient.getBySingleCol(
-      "phone",
-      value.phone,
-      { transaction }
-    );
+    const existingPhone = await cClient.getBySingleCol("phone", value.phone, {
+      transaction,
+    });
 
     if (existingPhone) {
       await transaction.rollback();
@@ -375,11 +372,9 @@ router.post("/api/v2/register", async (req, res) => {
     // =========================================================
     // 3. CHECK EMAIL
     // =========================================================
-    const existingEmail = await cClient.getBySingleCol(
-      "email",
-      value.email,
-      { transaction }
-    );
+    const existingEmail = await cClient.getBySingleCol("email", value.email, {
+      transaction,
+    });
 
     if (existingEmail) {
       await transaction.rollback();
@@ -430,12 +425,7 @@ router.post("/api/v2/register", async (req, res) => {
     // =========================================================
     const acct_no = 190100 + Number(client_ID);
 
-    await cClient.getRecByID(
-      "id",
-      acct_no,
-      client_ID,
-      { transaction }
-    );
+    await cClient.getRecByID("id", acct_no, client_ID, { transaction });
 
     // =========================================================
     // 7. CREATE SUBSCRIPTION ORDER
@@ -472,7 +462,7 @@ router.post("/api/v2/register", async (req, res) => {
         },
         type: sequelize.QueryTypes.INSERT,
         transaction,
-      }
+      },
     );
 
     // MySQL returns the inserted ID here.
@@ -485,12 +475,9 @@ router.post("/api/v2/register", async (req, res) => {
     // =========================================================
     // 8. UPDATE CLIENT WITH SUBORDER ID
     // =========================================================
-    await cClient.updateOneColumn(
-      client_ID,
-      "suborder_id",
-      subOrderId,
-      { transaction }
-    );
+    await cClient.updateOneColumn(client_ID, "suborder_id", subOrderId, {
+      transaction,
+    });
 
     // =========================================================
     // 9. CREATE DEFAULT ACCOUNTS / PERSONS
@@ -653,8 +640,7 @@ router.post("/api/v2/register", async (req, res) => {
       },
       {
         rolename: "USER",
-        permission:
-          "dashboard,ledger,pos,all_inventory",
+        permission: "dashboard,ledger,pos,all_inventory",
         clt_id: client_ID,
       },
     ];
@@ -698,7 +684,7 @@ router.post("/api/v2/register", async (req, res) => {
         },
         type: sequelize.QueryTypes.INSERT,
         transaction,
-      }
+      },
     );
 
     // =========================================================
@@ -712,7 +698,6 @@ router.post("/api/v2/register", async (req, res) => {
       regno: acct_no,
       cleintID: client_ID,
     });
-
   } catch (err) {
     // =========================================================
     // ANY ERROR = ROLLBACK EVERYTHING
@@ -728,28 +713,18 @@ router.post("/api/v2/register", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Registration failed. No changes were saved.",
-      error:
-        process.env.NODE_ENV === "development"
-          ? err.message
-          : undefined,
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }
 });
 
-
-
-
-
-
-
-
-
 router.get(
   "/api/v2/register",
   verifyAdmin,
-  //authorizePermission("expenses"),
+  AuthPermission("customers_view"),
+
   async (req, res) => {
-    //console.log(req.userDtl[0].id)
+    //console.log(req.userDtl.id)
 
     let qry = ``;
 

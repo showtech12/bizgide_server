@@ -6,108 +6,112 @@ const {
   EditUserSchema,
 } = require("../validation/CreatUserSchema");
 const verifyAdmin = require("../middleware/verifyAdmin");
+const AuthPermission = require("../middleware/AuthPermission");
 const Tools = require("../shared/commonTools");
 const pagination = require("../shared/pagination");
 const bcrypt = require("bcryptjs");
 const sequelize = require("../../config/database");
 const { QueryTypes } = require("sequelize");
 
-router.post("/api/v2/user", verifyAdmin, async (req, res) => {
-   //console.log(req.body);
-  //console.log(req.userDtl[0].id);
+router.post(
+  "/api/v2/user",
+  verifyAdmin,
+  AuthPermission("staff_create"),
+  async (req, res) => {
+    //console.log(req.body);
+    //console.log(req.userDtl.id);
 
-  try {
-   // console.log("Create user request:", req.body);
+    try {
+      // console.log("Create user request:", req.body);
 
-    const { error, value } = createUserSchema.validate(req.body); // Validation
+      const { error, value } = createUserSchema.validate(req.body); // Validation
 
-    if (error) {
-      return res.status(400).json({
-        success: false,
-        message: error.details[0].message.replace(/\"/g, ""),
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          message: error.details[0].message.replace(/\"/g, ""),
+        });
+      }
+
+      // Check phone uniqueness
+      const existingPhone = await cUser.getBySingleCol("phone", value.phone);
+      if (existingPhone) {
+        return res.status(400).json({
+          success: false,
+          message: "Phone number already in use",
+        });
+      }
+
+      // Check email uniqueness
+      const existingEmail = await cUser.getBySingleCol("email", value.email);
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Email already in use",
+        });
+      }
+
+      // Generate unique token
+      const token = Tools.getUniqueId();
+      const nowISO = new Date().toISOString();
+      const regDate = Tools.getNowDate();
+
+      // Hash password
+      const hashedPass = await bcrypt.hash(value.password, 10);
+
+      // Hash password if needed (here plain for demo)
+      // hashedPass = value.password; // Replace with bcrypt if required
+
+      //console.log(value);
+
+      const myData = {
+        ...value,
+        acct_type: value.userType,
+        surname: value.surname?.toUpperCase(),
+        othername: value.othername?.toUpperCase(),
+        updated_at: req.userDtl.id,
+        created_by: req.userDtl.id,
+        gender: value.gender.toUpperCase(),
+        password: hashedPass,
+        status: value.status.toUpperCase(),
+        created_at: nowISO,
+      };
+
+      //console.log(myData)
+      // Create user
+      await cUser.create(myData);
+      const user_ID = await cUser.MaxID("id");
+
+      // Generate account number
+      const acct_no = 2000 + user_ID;
+      await cUser.getRecByID("id", acct_no, user_ID);
+
+      // const userDetails = await cUser.getUser(user_ID);
+
+      return res.status(200).json({
+        success: true,
+        message: "User created successfully",
+        // data: {
+        //   id: userDetails.id,
+        //   surname: userDetails.surname,
+        //   othername: userDetails.othername,
+        //   email: userDetails.email,
+        //   acct_no: acct_no.toString(),
+        //   createdAt: userDetails.createdAt,
+        //   account_data: userDetails,
+        // },
       });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: "Server error" });
     }
-
-    // Check phone uniqueness
-    const existingPhone = await cUser.getBySingleCol("phone", value.phone);
-    if (existingPhone) {
-      return res.status(400).json({
-        success: false,
-        message: "Phone number already in use",
-      });
-    }
-
-    // Check email uniqueness
-    const existingEmail = await cUser.getBySingleCol("email", value.email);
-    if (existingEmail) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already in use",
-      });
-    }
-
-    // Generate unique token
-    const token = Tools.getUniqueId();
-    const nowISO = new Date().toISOString();
-    const regDate = Tools.getNowDate();
-
-    // Hash password
-    const hashedPass = await bcrypt.hash(value.password, 10);
-
-    // Hash password if needed (here plain for demo)
-    // hashedPass = value.password; // Replace with bcrypt if required
-
-    //console.log(value);
-
-    const myData = {
-      ...value,
-      acct_type:value.userType,
-      surname: value.surname?.toUpperCase(),
-      othername: value.othername?.toUpperCase(),
-      updated_at: req.userDtl[0].id,
-      created_by: req.userDtl[0].id,
-      gender: value.gender.toUpperCase(),
-      password: hashedPass,
-      status: value.status.toUpperCase(),
-      created_at: nowISO,
-    };
-
- 
-
-    //console.log(myData)
-    // Create user
-    await cUser.create(myData);
-    const user_ID = await cUser.MaxID("id");
-
-    // Generate account number
-    const acct_no = 2000 + user_ID;
-    await cUser.getRecByID("id", acct_no, user_ID);
-
-    // const userDetails = await cUser.getUser(user_ID);
-
-    return res.status(200).json({
-      success: true,
-      message: "User created successfully",
-      // data: {
-      //   id: userDetails.id,
-      //   surname: userDetails.surname,
-      //   othername: userDetails.othername,
-      //   email: userDetails.email,
-      //   acct_no: acct_no.toString(),
-      //   createdAt: userDetails.createdAt,
-      //   account_data: userDetails,
-      // },
-    });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: false, message: "Server error" });
-  }
-});
+  },
+);
 
 router.post(
   "/api/v2/userupdate",
   verifyAdmin,
-  // authorizePermission("users"),
+  AuthPermission("staff_update"),
   async (req, res) => {
     //console.log(req.body)
 
@@ -122,7 +126,7 @@ router.post(
         status,
         role_id,
         password,
-        userType
+        userType,
       } = req.body;
 
       const data = {
@@ -133,7 +137,7 @@ router.post(
         gender,
         status,
         role_id,
-        userType
+        userType,
       };
 
       if (password && password.trim() !== "") {
@@ -170,9 +174,10 @@ router.post(
 router.get(
   "/api/v2/users",
   verifyAdmin,
-  //authorizePermission("expenses"),
+  AuthPermission("staff_view"),
   async (req, res) => {
-   // console.log(req.userDtl[0].id);
+    // console.log(req.userDtl.id);
+    //console.log(req.userDtl.id);
     //console.log("Helloo")
     const t = req.query.t;
 
@@ -180,10 +185,9 @@ router.get(
 
     qry = `SELECT 
                 u.*,
-                r.rolename,
-                r.permission
-            FROM users u
-            INNER JOIN tblrole r
+                r.name As rolename
+             FROM users u
+            INNER JOIN roles_adm r
             ON u.role_id = r.id
             WHERE u.acct_type = '${t}' ORDER BY id DESC;`;
     try {
@@ -191,7 +195,7 @@ router.get(
         .query(qry, { type: sequelize.QueryTypes.SELECT })
 
         .then((results) => {
-           //console.log('Query result:', results);
+          //console.log('Query result:', results);
           res.status(200).json({
             success: true,
             message: "success",
@@ -220,7 +224,7 @@ router.get(
   "/api/v2/users1",
   verifyAdmin,
   pagination,
-  // authorizePermission("users"),
+  AuthPermission("staff_view"),
   async (req, res) => {
     const pages = await cUser.getAllUsers(req.mypages);
     res.status(200).json({
