@@ -123,7 +123,7 @@ router.get(
   //verifyAdmin,
   // authorizePermission("settings"),
   async (req, res) => {
-    //console.log(req.userDtl.id)
+    //console.log(req.userDtl[0].id)
     // const client_id = req.userDtl[0].client_id;
     //console.log("subsss")
     try {
@@ -187,7 +187,7 @@ router.get(
   verifyAdmin,
   // authorizePermission("settings"),
   async (req, res) => {
-    //console.log(req.userDtl.id)
+    //console.log(req.userDtl[0].id)
     const client_id = req.userDtl[0].client_id;
     try {
       sequelize
@@ -255,7 +255,7 @@ router.get(
   verifyAdmin,
   // authorizePermission("settings"),
   async (req, res) => {
-    //console.log(req.userDtl.id)
+    //console.log(req.userDtl[0].id)
     const client_id = req.userDtl[0].client_id;
     try {
       sequelize
@@ -296,7 +296,7 @@ router.get(
   verifyAdmin,
   // authorizePermission("view_role"),
   async (req, res) => {
-    //console.log(req.userDtl.id)
+    //console.log(req.userDtl[0].id)
     const client_id = req.userDtl[0].client_id;
     try {
       sequelize

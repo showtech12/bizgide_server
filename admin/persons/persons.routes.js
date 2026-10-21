@@ -57,7 +57,7 @@ router.post("/api/v1/updtpass", verifyAdmin, async (req, res, next) => {
   const BodyDetails = { txtPassW, txtNewPassW, txtCNewPassW };
 
   let OldPass = req.userDtl[0].pass_Word;
-  let Pid = req.userDtl.id;
+  let Pid = req.userDtl[0].id;
 
   const schema = Joi.object({
     txtPassW: Joi.string()
@@ -275,7 +275,7 @@ router.get("/verify/:id", async (req, res, next) => {
 });
 
 router.get("/api/v1/person", verifyAdmin, async (req, res, next) => {
-  const id = req.userDtl.id;
+  const id = req.userDtl[0].id;
 
   const pages = await cPersons.getPerson(id);
   res.status(200).json({
